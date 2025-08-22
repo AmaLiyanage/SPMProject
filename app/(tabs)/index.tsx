@@ -1,75 +1,146 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { ScrollView, StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function HomeScreen() {
+  const { userProfile } = useAuth();
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            Welcome to HerPower
+          </Text>
+          {userProfile && (
+            <Text style={styles.greeting}>
+              Hello, {userProfile.displayName}!
+            </Text>
+          )}
+          <Text style={styles.subtitle}>
+            Amplifying women's leadership through storytelling and mentorship
+          </Text>
+        </View>
+
+        <View style={styles.featuresContainer}>
+          <TouchableOpacity style={styles.featureCard}>
+            <Text style={styles.featureTitle}>📖 Share Your Story</Text>
+            <Text style={styles.featureDescription}>
+              Inspire others by sharing your leadership journey and experiences
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.featureCard}>
+            <Text style={styles.featureTitle}>🎯 Find a Mentor</Text>
+            <Text style={styles.featureDescription}>
+              Connect with experienced leaders who can guide your growth
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.featureCard}>
+            <Text style={styles.featureTitle}>🌟 Join Community</Text>
+            <Text style={styles.featureDescription}>
+              Be part of a supportive network of empowering women
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.featureCard}>
+            <Text style={styles.featureTitle}>📚 Learn & Grow</Text>
+            <Text style={styles.featureDescription}>
+              Access resources, workshops, and educational content
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>1K+</Text>
+            <Text style={styles.statLabel}>Stories Shared</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>500+</Text>
+            <Text style={styles.statLabel}>Mentors</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>5K+</Text>
+            <Text style={styles.statLabel}>Community Members</Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 60,
+  },
+  header: {
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 30,
   },
-  stepContainer: {
-    gap: 8,
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
     marginBottom: 8,
+    color: '#8B5CF6',
+    textAlign: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  greeting: {
+    fontSize: 18,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.8,
+    lineHeight: 22,
+  },
+  featuresContainer: {
+    marginBottom: 30,
+  },
+  featureCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#8B5CF6',
+  },
+  featureTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#8B5CF6',
+  },
+  featureDescription: {
+    fontSize: 14,
+    opacity: 0.8,
+    lineHeight: 20,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 20,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B5CF6',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    textAlign: 'center',
   },
 });

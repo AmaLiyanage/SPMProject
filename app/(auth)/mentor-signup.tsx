@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { validateEmail, validatePassword, sanitizeInput, getFirebaseErrorMessage } from '../../utils/validation';
 
 export default function MentorSignupScreen() {
   const [formData, setFormData] = useState({
@@ -68,18 +69,30 @@ export default function MentorSignupScreen() {
   };
 
   const validateStep1 = () => {
-    if (!formData.displayName || !formData.email || !formData.password || !formData.confirmPassword) {
+    const sanitizedEmail = sanitizeInput(formData.email);
+    const sanitizedDisplayName = sanitizeInput(formData.displayName);
+
+    if (!sanitizedDisplayName || !sanitizedEmail || !formData.password || !formData.confirmPassword) {
       Alert.alert('Error', 'Please fill in all basic information fields');
       return false;
     }
+
+    if (!validateEmail(sanitizedEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return false;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return false;
     }
-    if (formData.password.length < 6) {
-      Alert.alert('Error', 'Password should be at least 6 characters');
+
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      Alert.alert('Error', passwordValidation.errors.join('\n'));
       return false;
     }
+
     return true;
   };
 
@@ -114,9 +127,12 @@ export default function MentorSignupScreen() {
   const handleSubmit = async () => {
     if (!validateStep3()) return;
 
+    const sanitizedEmail = sanitizeInput(formData.email);
+    const sanitizedDisplayName = sanitizeInput(formData.displayName);
+
     setLoading(true);
     try {
-      await signup(formData.email, formData.password, 'mentor', formData.displayName);
+      await signup(sanitizedEmail, formData.password, 'mentor', sanitizedDisplayName);
       // TODO: Save additional mentor data to Firestore
       Alert.alert(
         'Success', 
@@ -129,7 +145,8 @@ export default function MentorSignupScreen() {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.message);
+      const errorMessage = getFirebaseErrorMessage(error.code) || error.message;
+      Alert.alert('Signup Failed', errorMessage);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { validateEmail, sanitizeInput, getFirebaseErrorMessage } from '../../utils/validation';
+import { validateUserType, getUserTypeErrorMessage } from '../../utils/auth';
 
 export default function UserLoginScreen() {
   const [email, setEmail] = useState('');
@@ -11,14 +13,26 @@ export default function UserLoginScreen() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const sanitizedEmail = sanitizeInput(email);
+
+    if (!sanitizedEmail || !password) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!validateEmail(sanitizedEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
     setLoading(true);
     try {
-      const userProfile = await login(email, password);
+      const userProfile = await login(sanitizedEmail, password);
+      
+      if (!validateUserType(userProfile, 'user')) {
+        Alert.alert('Access Denied', getUserTypeErrorMessage('user'));
+        return;
+      }
       
       if (!userProfile.emailVerified) {
         router.push('/(auth)/verify-email');
@@ -26,7 +40,8 @@ export default function UserLoginScreen() {
         router.replace('/(tabs)');
       }
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message);
+      const errorMessage = getFirebaseErrorMessage(error);
+      Alert.alert('Login Failed', errorMessage);
     } finally {
       setLoading(false);
     }

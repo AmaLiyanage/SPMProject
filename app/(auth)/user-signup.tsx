@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { validateEmail, validatePassword, sanitizeInput, getFirebaseErrorMessage } from '../../utils/validation';
 
 export default function UserSignupScreen() {
   const [email, setEmail] = useState('');
@@ -13,8 +14,16 @@ export default function UserSignupScreen() {
   const router = useRouter();
 
   const handleSignup = async () => {
-    if (!email || !password || !confirmPassword || !displayName) {
+    const sanitizedEmail = sanitizeInput(email);
+    const sanitizedDisplayName = sanitizeInput(displayName);
+
+    if (!sanitizedEmail || !password || !confirmPassword || !sanitizedDisplayName) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!validateEmail(sanitizedEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -23,14 +32,15 @@ export default function UserSignupScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password should be at least 6 characters');
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      Alert.alert('Error', passwordValidation.errors.join('\n'));
       return;
     }
 
     setLoading(true);
     try {
-      await signup(email, password, 'user', displayName);
+      await signup(sanitizedEmail, password, 'user', sanitizedDisplayName);
       Alert.alert(
         'Success', 
         'Account created! Please check your email to verify your account.',
@@ -42,7 +52,8 @@ export default function UserSignupScreen() {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.message);
+      const errorMessage = getFirebaseErrorMessage(error.code) || error.message;
+      Alert.alert('Signup Failed', errorMessage);
     } finally {
       setLoading(false);
     }

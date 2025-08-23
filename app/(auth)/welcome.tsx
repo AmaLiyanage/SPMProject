@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -9,14 +10,14 @@ export default function WelcomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#8B5CF6', '#A78BFA', '#C4B5FD']}
+        colors={['#6366F1', '#8B5CF6', '#A855F7']}
         style={styles.gradient}
       >
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Logo/Icon Section */}
           <View style={styles.logoSection}>
             <View style={styles.logoContainer}>
-              <Text style={styles.logoIcon}>👑</Text>
+              <Ionicons name="diamond" size={60} color="#fff" />
             </View>
             <Text style={styles.logoText}>HerPower</Text>
             <Text style={styles.tagline}>
@@ -27,15 +28,21 @@ export default function WelcomeScreen() {
           {/* Feature Highlights */}
           <View style={styles.featuresSection}>
             <View style={styles.feature}>
-              <Text style={styles.featureIcon}>📖</Text>
+              <View style={styles.featureIconContainer}>
+                <Ionicons name="book-outline" size={28} color="#fff" />
+              </View>
               <Text style={styles.featureText}>Share inspiring stories</Text>
             </View>
             <View style={styles.feature}>
-              <Text style={styles.featureIcon}>🤝</Text>
+              <View style={styles.featureIconContainer}>
+                <Ionicons name="people-outline" size={28} color="#fff" />
+              </View>
               <Text style={styles.featureText}>Connect with mentors</Text>
             </View>
             <View style={styles.feature}>
-              <Text style={styles.featureIcon}>🌟</Text>
+              <View style={styles.featureIconContainer}>
+                <Ionicons name="star-outline" size={28} color="#fff" />
+              </View>
               <Text style={styles.featureText}>Build your network</Text>
             </View>
           </View>
@@ -70,7 +77,7 @@ export default function WelcomeScreen() {
               Empowering women leaders worldwide
             </Text>
           </View>
-        </View>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -96,13 +103,12 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  logoIcon: {
-    fontSize: 60,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   logoText: {
     fontSize: 42,
@@ -127,9 +133,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  featureIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+  featureIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   featureText: {
     fontSize: 14,
@@ -142,29 +153,29 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 18,
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   primaryButtonText: {
-    color: '#8B5CF6',
+    color: '#6366F1',
     fontSize: 18,
     fontWeight: 'bold',
   },
   secondaryButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    padding: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   secondaryButtonText: {
     color: '#fff',
@@ -172,12 +183,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mentorButton: {
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    padding: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   mentorButtonText: {
     color: '#fff',

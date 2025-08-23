@@ -1,35 +1,108 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 export default function VerifyEmailScreen() {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [justResent, setJustResent] = useState(false);
   const { currentUser, sendVerificationEmail, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    const checkEmailVerification = setInterval(async () => {
-      if (currentUser) {
-        await currentUser.reload();
-        if (currentUser.emailVerified) {
+    if (!currentUser) return;
+
+    let checkEmailVerification: NodeJS.Timeout;
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const startPolling = () => {
+      checkEmailVerification = setInterval(async () => {
+        if (!currentUser || !isMounted) {
           clearInterval(checkEmailVerification);
-          router.replace('/(tabs)');
+          return;
         }
+
+        // Skip checking for 10 seconds after resending email
+        if (justResent) {
+          return;
+        }
+
+        try {
+          await currentUser.reload();
+          if (currentUser.emailVerified && isMounted) {
+            clearInterval(checkEmailVerification);
+            
+            // Update Firestore document to reflect verification status
+            try {
+              await updateDoc(doc(db, 'users', currentUser.uid), {
+                emailVerified: true
+              });
+            } catch (firestoreError) {
+              console.error('Failed to update Firestore verification status:', firestoreError);
+            }
+            
+            router.replace('/(tabs)');
+          }
+          retryCount = 0; // Reset retry count on success
+        } catch (error: any) {
+          retryCount++;
+          
+          if (error?.code === 'auth/network-request-failed') {
+            // Network error - continue polling but with backoff
+            if (retryCount >= maxRetries) {
+              clearInterval(checkEmailVerification);
+              // Restart polling after 10 seconds
+              setTimeout(() => {
+                if (isMounted) {
+                  retryCount = 0;
+                  startPolling();
+                }
+              }, 10000);
+            }
+          } else {
+            // Other errors - stop polling
+            clearInterval(checkEmailVerification);
+          }
+        }
+      }, 3000);
+    };
+
+    // Start polling after a 3-second delay to avoid immediate navigation
+    setTimeout(() => {
+      if (isMounted) {
+        startPolling();
       }
     }, 3000);
 
-    return () => clearInterval(checkEmailVerification);
+    return () => {
+      isMounted = false;
+      if (checkEmailVerification) {
+        clearInterval(checkEmailVerification);
+      }
+    };
   }, [currentUser, router]);
 
   const handleResendEmail = async () => {
     setResendLoading(true);
+    setJustResent(true);
+    
     try {
       await sendVerificationEmail();
       Alert.alert('Success', 'Verification email sent! Please check your inbox.');
+      
+      // Resume polling after 10 seconds
+      setTimeout(() => {
+        setJustResent(false);
+      }, 10000);
     } catch (error: any) {
       Alert.alert('Error', error.message);
+      setJustResent(false); // Resume polling immediately on error
     } finally {
       setResendLoading(false);
     }
@@ -49,11 +122,23 @@ export default function VerifyEmailScreen() {
 
   const handleContinue = async () => {
     if (currentUser) {
-      await currentUser.reload();
-      if (currentUser.emailVerified) {
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Email Not Verified', 'Please verify your email before continuing.');
+      setLoading(true);
+      try {
+        await currentUser.reload();
+        if (currentUser.emailVerified) {
+          // Update Firestore document to reflect verification status
+          await updateDoc(doc(db, 'users', currentUser.uid), {
+            emailVerified: true
+          });
+          router.replace('/(tabs)');
+        } else {
+          Alert.alert('Email Not Verified', 'Please verify your email before continuing.');
+        }
+      } catch (error: any) {
+        Alert.alert('Error', 'Failed to verify email status. Please try again.');
+        console.error('Error in handleContinue:', error);
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -62,7 +147,7 @@ export default function VerifyEmailScreen() {
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Text style={styles.icon}>📧</Text>
+          <Ionicons name="mail" size={80} color="#8B5CF6" />
         </View>
         
         <Text style={styles.title}>Verify Your Email</Text>
@@ -118,9 +203,6 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginBottom: 30,
-  },
-  icon: {
-    fontSize: 80,
   },
   title: {
     fontSize: 24,

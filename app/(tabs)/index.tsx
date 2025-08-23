@@ -1,5 +1,7 @@
 import { ScrollView, StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import ProfilePicture from '../../components/ProfilePicture';
 
 export default function HomeScreen() {
   const { userProfile } = useAuth();
@@ -7,44 +9,55 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            Welcome to HerPower
-          </Text>
-          {userProfile && (
+        {userProfile && (
+          <View style={styles.header}>
             <Text style={styles.greeting}>
               Hello, {userProfile.displayName}!
             </Text>
-          )}
-          <Text style={styles.subtitle}>
-            Amplifying women's leadership through storytelling and mentorship
-          </Text>
-        </View>
+            <ProfilePicture
+              imageUri={userProfile.profilePicture}
+              userType={userProfile.userType}
+              size={40}
+            />
+          </View>
+        )}
 
         <View style={styles.featuresContainer}>
           <TouchableOpacity style={styles.featureCard}>
-            <Text style={styles.featureTitle}>📖 Share Your Story</Text>
+            <View style={styles.featureTitleContainer}>
+              <Ionicons name="book" size={20} color="#8B5CF6" />
+              <Text style={styles.featureTitle}>Share Your Story</Text>
+            </View>
             <Text style={styles.featureDescription}>
               Inspire others by sharing your leadership journey and experiences
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.featureCard}>
-            <Text style={styles.featureTitle}>🎯 Find a Mentor</Text>
+            <View style={styles.featureTitleContainer}>
+              <Ionicons name="people" size={20} color="#8B5CF6" />
+              <Text style={styles.featureTitle}>Find a Mentor</Text>
+            </View>
             <Text style={styles.featureDescription}>
               Connect with experienced leaders who can guide your growth
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.featureCard}>
-            <Text style={styles.featureTitle}>🌟 Join Community</Text>
+            <View style={styles.featureTitleContainer}>
+              <Ionicons name="star" size={20} color="#8B5CF6" />
+              <Text style={styles.featureTitle}>Join Community</Text>
+            </View>
             <Text style={styles.featureDescription}>
               Be part of a supportive network of empowering women
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.featureCard}>
-            <Text style={styles.featureTitle}>📚 Learn & Grow</Text>
+            <View style={styles.featureTitleContainer}>
+              <Ionicons name="library" size={20} color="#8B5CF6" />
+              <Text style={styles.featureTitle}>Learn & Grow</Text>
+            </View>
             <Text style={styles.featureDescription}>
               Access resources, workshops, and educational content
             </Text>
@@ -79,27 +92,16 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 30,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#8B5CF6',
-    textAlign: 'center',
-  },
   greeting: {
     fontSize: 18,
-    marginBottom: 8,
     fontWeight: '600',
   },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    opacity: 0.8,
-    lineHeight: 22,
-  },
+  
   featuresContainer: {
     marginBottom: 30,
   },
@@ -111,10 +113,15 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#8B5CF6',
   },
+  featureTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
   featureTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
     color: '#8B5CF6',
   },
   featureDescription: {
@@ -128,6 +135,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 20,
+    marginBottom:80
   },
   statItem: {
     alignItems: 'center',

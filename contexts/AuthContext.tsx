@@ -7,8 +7,9 @@ import {
   sendEmailVerification,
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { createUserProfile } from '../utils/auth';
 
 export type UserType = 'user' | 'mentor';
 
@@ -17,6 +18,7 @@ export interface UserProfile {
   email: string;
   userType: UserType;
   displayName?: string;
+  profilePicture?: string;
   emailVerified: boolean;
   createdAt: Date;
 }
@@ -29,6 +31,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<UserProfile>;
   logout: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
+  updateProfilePicture: (imageUri: string) => Promise<void>;
+  deleteProfilePicture: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,43 +54,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (email: string, password: string, userType: UserType, displayName?: string) => {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      console.log('✅ User created successfully:', user.uid);
       
-      const profile: UserProfile = {
-        uid: user.uid,
-        email: user.email!,
-        userType,
-        displayName,
-        emailVerified: false,
-        createdAt: new Date()
-      };
+      const profile = createUserProfile(user.uid, user.email!, userType, displayName);
 
-      try {
-        // Try to save to Firestore with timeout
-        await Promise.race([
-          setDoc(doc(db, 'users', user.uid), profile),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Firestore timeout')), 5000)
-          )
-        ]);
-        console.log('✅ User profile saved to Firestore');
-      } catch (firestoreError) {
-        console.warn('⚠️ Failed to save user profile to Firestore:', firestoreError);
-        // Continue anyway - we can save the profile later
-      }
+      // Save to Firestore - this must succeed
+      await setDoc(doc(db, 'users', user.uid), profile);
 
       try {
         await sendEmailVerification(user);
-        console.log('✅ Verification email sent');
       } catch (emailError) {
-        console.warn('⚠️ Failed to send verification email:', emailError);
         // Continue anyway - user can request verification later
+        console.warn('Failed to send verification email:', emailError);
       }
       
       setUserProfile(profile);
-      console.log('✅ Signup completed successfully');
     } catch (error) {
-      console.error('❌ Signup failed:', error);
       throw error;
     }
   };
@@ -96,10 +79,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (userDoc.exists()) {
-        const profile = userDoc.data() as UserProfile;
-        profile.emailVerified = user.emailVerified;
-        setUserProfile(profile);
-        return profile;
+        const data = userDoc.data();
+        
+        if (data && data.email && data.userType) {
+          const profile: UserProfile = {
+            uid: user.uid,
+            email: data.email,
+            userType: data.userType,
+            displayName: data.displayName,
+            profilePicture: data.profilePicture,
+            emailVerified: user.emailVerified,
+            createdAt: data.createdAt?.toDate() || new Date()
+          };
+          setUserProfile(profile);
+          return profile;
+        } else {
+          throw new Error('Invalid user profile data');
+        }
       } else {
         throw new Error('User profile not found');
       }
@@ -120,21 +116,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendVerificationEmail = async () => {
     if (currentUser && !currentUser.emailVerified) {
       try {
-        console.log('📧 Sending verification email to:', currentUser.email);
         await sendEmailVerification(currentUser);
-        console.log('✅ Verification email sent successfully');
       } catch (error) {
-        console.error('❌ Failed to send verification email:', error);
         throw error;
       }
     } else if (currentUser?.emailVerified) {
-      console.log('ℹ️ Email is already verified');
       throw new Error('Email is already verified');
     } else {
-      console.log('⚠️ No current user found');
       throw new Error('No user found');
     }
   };
+
+  const updateProfilePicture = async (imageUri: string) => {
+    if (!currentUser || !userProfile) {
+      throw new Error('No authenticated user found');
+    }
+
+    try {
+      const updatedProfile = { ...userProfile, profilePicture: imageUri };
+      await setDoc(doc(db, 'users', currentUser.uid), updatedProfile, { merge: true });
+      setUserProfile(updatedProfile);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const deleteProfilePicture = async () => {
+    if (!currentUser || !userProfile) {
+      throw new Error('No authenticated user found');
+    }
+
+    try {
+      // Use updateDoc with deleteField to properly remove the field from Firestore
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        profilePicture: deleteField()
+      });
+      
+      // Update local state by removing the profilePicture field
+      const updatedProfile = { ...userProfile };
+      delete updatedProfile.profilePicture;
+      setUserProfile(updatedProfile);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (!currentUser) return;
+
+    try {
+      await currentUser.reload(); // Refresh Firebase Auth user
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        if (data && data.email && data.userType) {
+          const profile: UserProfile = {
+            uid: currentUser.uid,
+            email: data.email,
+            userType: data.userType,
+            displayName: data.displayName,
+            profilePicture: data.profilePicture,
+            emailVerified: currentUser.emailVerified,
+            createdAt: data.createdAt?.toDate() || new Date()
+          };
+          setUserProfile(profile);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    }
+  };
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -144,9 +197,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            const profile = userDoc.data() as UserProfile;
-            profile.emailVerified = user.emailVerified;
-            setUserProfile(profile);
+            const data = userDoc.data();
+            if (data && data.email && data.userType) {
+              const profile: UserProfile = {
+                uid: user.uid,
+                email: data.email,
+                userType: data.userType,
+                displayName: data.displayName,
+                profilePicture: data.profilePicture,
+                emailVerified: user.emailVerified,
+                createdAt: data.createdAt?.toDate() || new Date()
+              };
+              setUserProfile(profile);
+            }
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
@@ -161,6 +224,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsubscribe;
   }, []);
 
+  // Sync email verification status when user navigates between tabs
+  useEffect(() => {
+    const syncEmailVerification = async () => {
+      if (currentUser && userProfile) {
+        try {
+          await currentUser.reload(); // Refresh Firebase Auth user
+          if (currentUser.emailVerified !== userProfile.emailVerified) {
+            // Update profile state with current verification status
+            setUserProfile(prev => prev ? {
+              ...prev,
+              emailVerified: currentUser.emailVerified
+            } : null);
+          }
+        } catch (error) {
+          // Silently fail - don't interrupt user experience
+          console.error('Error syncing email verification:', error);
+        }
+      }
+    };
+
+    // Sync immediately and then every 30 seconds while app is active
+    if (currentUser && userProfile) {
+      syncEmailVerification();
+      const interval = setInterval(syncEmailVerification, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser, userProfile?.uid]); // Only depend on user existence and uid
+
+
   const value: AuthContextType = {
     currentUser,
     userProfile,
@@ -168,7 +260,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signup,
     login,
     logout,
-    sendVerificationEmail
+    sendVerificationEmail,
+    updateProfilePicture,
+    deleteProfilePicture,
+    refreshProfile
   };
 
   return (

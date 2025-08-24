@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,12 +8,11 @@ export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#6366F1', '#8B5CF6', '#A855F7']}
-        style={styles.gradient}
-      >
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <LinearGradient
+      colors={['#6366F1', '#8B5CF6', '#A855F7']}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Logo/Icon Section */}
           <View style={styles.logoSection}>
             <View style={styles.logoContainer}>
@@ -53,13 +52,15 @@ export default function WelcomeScreen() {
               style={styles.primaryButton}
               onPress={() => router.push('/(auth)/user-signup')}
             >
-              <Text style={styles.primaryButtonText}>Get Started</Text>
+              <Ionicons name="rocket" size={20} color="#6366F1" style={styles.buttonIcon} />
+              <Text style={styles.primaryButtonText}>Sign Up</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.secondaryButton}
               onPress={() => router.push('/(auth)/user-login')}
             >
+              <Ionicons name="log-in" size={20} color="#fff" style={styles.buttonIcon} />
               <Text style={styles.secondaryButtonText}>Sign In</Text>
             </TouchableOpacity>
 
@@ -67,6 +68,7 @@ export default function WelcomeScreen() {
               style={styles.mentorButton}
               onPress={() => router.push('/(auth)/mentor-signup')}
             >
+              <Ionicons name="school" size={20} color="#fff" style={styles.buttonIcon} />
               <Text style={styles.mentorButtonText}>Join as Mentor</Text>
             </TouchableOpacity>
           </View>
@@ -77,9 +79,8 @@ export default function WelcomeScreen() {
               Empowering women leaders worldwide
             </Text>
           </View>
-        </ScrollView>
-      </LinearGradient>
-    </SafeAreaView>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
@@ -87,17 +88,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
-  },
   content: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
     justifyContent: 'space-between',
   },
   logoSection: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 60,
   },
   logoContainer: {
     width: 120,
@@ -149,19 +147,23 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   buttonSection: {
-    marginBottom: 40,
+    marginBottom: 50,
   },
   primaryButton: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 3,
+    borderColor: '#fff',
   },
   primaryButtonText: {
     color: '#6366F1',
@@ -169,13 +171,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   secondaryButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   secondaryButtonText: {
     color: '#fff',
@@ -187,17 +196,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: 'rgba(255, 215, 0, 0.8)',
+    shadowColor: 'rgba(255, 215, 0, 0.5)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   mentorButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
+  buttonIcon: {
+    marginRight: 8,
+  },
   footer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   footerText: {
     fontSize: 14,

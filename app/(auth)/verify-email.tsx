@@ -9,27 +9,54 @@ import { db } from '../../config/firebase';
 export default function VerifyEmailScreen() {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [justResent, setJustResent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(60); // Start with 60-second cooldown
+  const [autoCheckCount, setAutoCheckCount] = useState(0);
+  const [stopAutoCheck, setStopAutoCheck] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   const { currentUser, sendVerificationEmail, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!currentUser) return;
 
-    let checkEmailVerification: NodeJS.Timeout;
+    let checkEmailVerification: ReturnType<typeof setInterval>;
     let isMounted = true;
     let retryCount = 0;
     const maxRetries = 3;
+    const maxAutoChecks = 10; // 5 minutes worth of checks at 30-second intervals
 
     const startPolling = () => {
+      setAutoCheckCount(0);
       checkEmailVerification = setInterval(async () => {
         if (!currentUser || !isMounted) {
           clearInterval(checkEmailVerification);
           return;
         }
 
-        // Skip checking for 10 seconds after resending email
-        if (justResent) {
+        // Stop auto-checking if manually stopped
+        if (stopAutoCheck) {
+          clearInterval(checkEmailVerification);
+          return;
+        }
+
+        // Show timeout message and restart after 5 minutes
+        if (autoCheckCount >= maxAutoChecks) {
+          clearInterval(checkEmailVerification);
+          Alert.alert(
+            'Still waiting?', 
+            'Check your spam folder or resend the email. We\'ll continue checking for you.',
+            [{ 
+              text: 'OK', 
+              onPress: () => {
+                // Restart auto-checking after user acknowledges
+                setTimeout(() => {
+                  if (isMounted && !stopAutoCheck) {
+                    startPolling();
+                  }
+                }, 1000);
+              }
+            }]
+          );
           return;
         }
 
@@ -48,7 +75,9 @@ export default function VerifyEmailScreen() {
             }
             
             router.replace('/(tabs)');
+            return;
           }
+          setAutoCheckCount(prev => prev + 1);
           retryCount = 0; // Reset retry count on success
         } catch (error: any) {
           retryCount++;
@@ -70,7 +99,7 @@ export default function VerifyEmailScreen() {
             clearInterval(checkEmailVerification);
           }
         }
-      }, 3000);
+      }, 30000); // Check every 30 seconds
     };
 
     // Start polling after a 3-second delay to avoid immediate navigation
@@ -86,23 +115,50 @@ export default function VerifyEmailScreen() {
         clearInterval(checkEmailVerification);
       }
     };
-  }, [currentUser, router]);
+  }, [currentUser, router, autoCheckCount]);
+
+  // Start initial cooldown countdown
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const countdownInterval = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(countdownInterval);
+    }
+  }, []);
 
   const handleResendEmail = async () => {
+    if (resendCooldown > 0) return;
+    
     setResendLoading(true);
-    setJustResent(true);
     
     try {
       await sendVerificationEmail();
-      Alert.alert('Success', 'Verification email sent! Please check your inbox.');
+      Alert.alert('Success', 'Verification email sent! Please check your inbox and click the verification link.');
       
-      // Resume polling after 10 seconds
-      setTimeout(() => {
-        setJustResent(false);
-      }, 10000);
+      // Start 60-second cooldown
+      setResendCooldown(60);
+      const countdownInterval = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      // Reset auto-check count to restart 5-minute window
+      setAutoCheckCount(0);
     } catch (error: any) {
       Alert.alert('Error', error.message);
-      setJustResent(false); // Resume polling immediately on error
     } finally {
       setResendLoading(false);
     }
@@ -121,8 +177,11 @@ export default function VerifyEmailScreen() {
   };
 
   const handleContinue = async () => {
-    if (currentUser) {
+    if (currentUser && !isChecking) {
       setLoading(true);
+      setIsChecking(true);
+      // Stop auto-checking when user manually verifies
+      setStopAutoCheck(true);
       try {
         await currentUser.reload();
         if (currentUser.emailVerified) {
@@ -133,12 +192,17 @@ export default function VerifyEmailScreen() {
           router.replace('/(tabs)');
         } else {
           Alert.alert('Email Not Verified', 'Please verify your email before continuing.');
+          // Resume auto-checking if verification failed
+          setStopAutoCheck(false);
         }
       } catch (error: any) {
         Alert.alert('Error', 'Failed to verify email status. Please try again.');
         console.error('Error in handleContinue:', error);
+        // Resume auto-checking on error
+        setStopAutoCheck(false);
       } finally {
         setLoading(false);
+        setIsChecking(false);
       }
     }
   };
@@ -152,30 +216,39 @@ export default function VerifyEmailScreen() {
         
         <Text style={styles.title}>Verify Your Email</Text>
         <Text style={styles.message}>
-          We've sent a verification email to{'\n'}
+          We have sent a verification email to{'\n'}
           <Text style={styles.email}>{currentUser?.email}</Text>
           {'\n\n'}
           Please check your inbox and click the verification link to continue.
         </Text>
 
         <TouchableOpacity 
-          style={styles.primaryButton} 
+          style={[styles.primaryButton, loading && styles.buttonDisabled]} 
           onPress={handleContinue}
+          disabled={loading}
         >
           <Text style={styles.primaryButtonText}>
-            I've Verified My Email
+            {loading ? 'Verifying...' : "I've Verified My Email"}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={[styles.secondaryButton, resendLoading && styles.buttonDisabled]} 
+          style={[styles.secondaryButton, (resendLoading || resendCooldown > 0) && styles.buttonDisabled]} 
           onPress={handleResendEmail}
-          disabled={resendLoading}
+          disabled={resendLoading || resendCooldown > 0}
         >
           <Text style={styles.secondaryButtonText}>
-            {resendLoading ? 'Sending...' : 'Resend Verification Email'}
+            {resendLoading ? 'Sending...' : 
+             resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 
+             'Resend Verification Email'}
           </Text>
         </TouchableOpacity>
+        
+        {resendCooldown > 0 && (
+          <Text style={styles.cooldownMessage}>
+            Didn't get the email? Resend in {resendCooldown} seconds.
+          </Text>
+        )}
 
         <TouchableOpacity 
           style={[styles.logoutButton, loading && styles.buttonDisabled]} 
@@ -260,5 +333,12 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  cooldownMessage: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
 });

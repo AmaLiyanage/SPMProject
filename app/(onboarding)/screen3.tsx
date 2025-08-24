@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function OnboardingScreen3() {
@@ -22,18 +23,19 @@ export default function OnboardingScreen3() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#10B981', '#34D399']}
-        style={styles.gradient}
-      >
+    <LinearGradient
+      colors={['#10B981', '#34D399']}
+      style={styles.container}
+    >
         <View style={styles.content}>
           <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
 
           <View style={styles.mainContent}>
-            <Text style={styles.emoji}>🤝</Text>
+            <View style={styles.iconContainer}>
+              <Ionicons name="people" size={80} color="#fff" />
+            </View>
             <Text style={styles.title}>Find Your Mentor</Text>
             <Text style={styles.description}>
               Connect with experienced leaders who understand your journey. Get guidance, advice, and support from women who've been where you want to go.
@@ -45,7 +47,6 @@ export default function OnboardingScreen3() {
               <View style={styles.dot} />
               <View style={styles.dot} />
               <View style={[styles.dot, styles.activeDot]} />
-              <View style={styles.dot} />
             </View>
 
             <View style={styles.buttonRow}>
@@ -59,8 +60,7 @@ export default function OnboardingScreen3() {
             </View>
           </View>
         </View>
-      </LinearGradient>
-    </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+    paddingTop: 60,
   },
   skipButton: {
     alignSelf: 'flex-end',
@@ -90,9 +91,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  emoji: {
-    fontSize: 120,
+  iconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 40,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   title: {
     fontSize: 32,

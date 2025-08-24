@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, SafeAreaView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../contexts/AuthContext';
-import { pickImage } from '../../../utils/imageUtils';
+import { useProfilePicture } from '../../../hooks/useProfilePicture';
 import ProfilePicture from '../../../components/ProfilePicture';
 
 export default function AccountScreen() {
-  const { userProfile, logout, updateProfilePicture, deleteProfilePicture, refreshProfile } = useAuth();
+  const { userProfile, logout, refreshProfile } = useAuth();
+  const { handleEditProfilePicture } = useProfilePicture();
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
@@ -29,51 +30,6 @@ export default function AccountScreen() {
     }
   };
 
-  const handleEditProfilePicture = () => {
-    const hasCustomPicture = userProfile?.profilePicture;
-    
-    const options = [
-      { text: 'Choose from Library', onPress: handleSelectFromLibrary },
-      ...(hasCustomPicture ? [{ text: 'Remove Photo', onPress: handleDeleteProfilePicture, style: 'destructive' as const }] : []),
-      { text: 'Cancel', style: 'cancel' as const }
-    ];
-
-    Alert.alert('Profile Picture', 'What would you like to do?', options);
-  };
-
-  const handleSelectFromLibrary = async () => {
-    try {
-      const imageUri = await pickImage();
-      if (imageUri) {
-        await updateProfilePicture(imageUri);
-        Alert.alert('Success', 'Profile picture updated successfully!');
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile picture');
-    }
-  };
-
-  const handleDeleteProfilePicture = () => {
-    Alert.alert(
-      'Remove Photo',
-      'Are you sure you want to remove your profile picture? This will revert to the default image.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Remove', 
-          style: 'destructive', 
-          onPress: async () => {
-            try {
-              await deleteProfilePicture();
-              Alert.alert('Success', 'Profile picture removed successfully!');
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to remove profile picture');
-            }
-          }
-        }
-      ]
-    );
-  };
 
   const confirmLogout = () => {
     Alert.alert(
@@ -125,7 +81,10 @@ export default function AccountScreen() {
         )}
 
         <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/profile/profile-settings')}
+          >
             <Text style={styles.menuText}>Profile Settings</Text>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
@@ -135,7 +94,10 @@ export default function AccountScreen() {
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/profile/privacy-security')}
+          >
             <Text style={styles.menuText}>Privacy & Security</Text>
             <Text style={styles.arrow}>›</Text>
           </TouchableOpacity>

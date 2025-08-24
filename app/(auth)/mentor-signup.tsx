@@ -7,11 +7,15 @@ import {
   StyleSheet, 
   Alert, 
   ScrollView, 
-  SafeAreaView 
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateEmail, validatePassword, sanitizeInput, getFirebaseErrorMessage } from '../../utils/validation';
+import { getAutoTimeZone } from '../../utils/timeZone';
 
 export default function MentorSignupScreen() {
   const [formData, setFormData] = useState({
@@ -25,14 +29,16 @@ export default function MentorSignupScreen() {
     yearsOfExperience: '',
     linkedinUrl: '',
     bio: '',
-    expertise: [],
-    mentorshipAreas: [],
+    expertise: [] as string[],
+    mentorshipAreas: [] as string[],
     availability: '',
     timeZone: '',
   });
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { signup } = useAuth();
   const router = useRouter();
 
@@ -132,8 +138,21 @@ export default function MentorSignupScreen() {
 
     setLoading(true);
     try {
-      await signup(sanitizedEmail, formData.password, 'mentor', sanitizedDisplayName);
-      // TODO: Save additional mentor data to Firestore
+      // Prepare mentor-specific data
+      const mentorData = {
+        jobTitle: sanitizeInput(formData.jobTitle),
+        company: sanitizeInput(formData.company),
+        industry: sanitizeInput(formData.industry),
+        yearsOfExperience: sanitizeInput(formData.yearsOfExperience),
+        linkedinUrl: sanitizeInput(formData.linkedinUrl),
+        bio: sanitizeInput(formData.bio),
+        expertise: formData.expertise,
+        mentorshipAreas: formData.mentorshipAreas,
+        availability: sanitizeInput(formData.availability),
+        timeZone: getAutoTimeZone(),
+      };
+
+      await signup(sanitizedEmail, formData.password, 'mentor', sanitizedDisplayName, mentorData);
       Alert.alert(
         'Success', 
         'Mentor account created! Please check your email to verify your account.',
@@ -156,41 +175,78 @@ export default function MentorSignupScreen() {
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Basic Information</Text>
       
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name *"
-        placeholderTextColor="#666"
-        value={formData.displayName}
-        onChangeText={(value) => updateFormData('displayName', value)}
-      />
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Full Name *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your full name"
+          placeholderTextColor="#666"
+          value={formData.displayName}
+          onChangeText={(value) => updateFormData('displayName', value)}
+          autoCapitalize="words"
+        />
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email Address *"
-        placeholderTextColor="#666"
-        value={formData.email}
-        onChangeText={(value) => updateFormData('email', value)}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Email Address *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your email address"
+          placeholderTextColor="#666"
+          value={formData.email}
+          onChangeText={(value) => updateFormData('email', value)}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+      </View>
       
-      <TextInput
-        style={styles.input}
-        placeholder="Password *"
-        placeholderTextColor="#666"
-        value={formData.password}
-        onChangeText={(value) => updateFormData('password', value)}
-        secureTextEntry
-      />
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Password *</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Create a password"
+            placeholderTextColor="#666"
+            value={formData.password}
+            onChangeText={(value) => updateFormData('password', value)}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={20}
+              color="#666"
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password *"
-        placeholderTextColor="#666"
-        value={formData.confirmPassword}
-        onChangeText={(value) => updateFormData('confirmPassword', value)}
-        secureTextEntry
-      />
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Confirm Password *</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Confirm your password"
+            placeholderTextColor="#666"
+            value={formData.confirmPassword}
+            onChangeText={(value) => updateFormData('confirmPassword', value)}
+            secureTextEntry={!showConfirmPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+          >
+            <Ionicons
+              name={showConfirmPassword ? 'eye-off' : 'eye'}
+              size={20}
+              color="#666"
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 
@@ -198,21 +254,29 @@ export default function MentorSignupScreen() {
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Professional Background</Text>
       
-      <TextInput
-        style={styles.input}
-        placeholder="Job Title *"
-        placeholderTextColor="#666"
-        value={formData.jobTitle}
-        onChangeText={(value) => updateFormData('jobTitle', value)}
-      />
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Job Title *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your current job title"
+          placeholderTextColor="#666"
+          value={formData.jobTitle}
+          onChangeText={(value) => updateFormData('jobTitle', value)}
+          autoCapitalize="words"
+        />
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Company *"
-        placeholderTextColor="#666"
-        value={formData.company}
-        onChangeText={(value) => updateFormData('company', value)}
-      />
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Company *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your company name"
+          placeholderTextColor="#666"
+          value={formData.company}
+          onChangeText={(value) => updateFormData('company', value)}
+          autoCapitalize="words"
+        />
+      </View>
 
       <Text style={styles.sectionLabel}>Industry *</Text>
       <View style={styles.categoryContainer}>
@@ -256,14 +320,17 @@ export default function MentorSignupScreen() {
         ))}
       </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="LinkedIn Profile URL (optional)"
-        placeholderTextColor="#666"
-        value={formData.linkedinUrl}
-        onChangeText={(value) => updateFormData('linkedinUrl', value)}
-        autoCapitalize="none"
-      />
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>LinkedIn Profile URL (optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your LinkedIn profile URL"
+          placeholderTextColor="#666"
+          value={formData.linkedinUrl}
+          onChangeText={(value) => updateFormData('linkedinUrl', value)}
+          autoCapitalize="none"
+        />
+      </View>
     </View>
   );
 
@@ -349,7 +416,15 @@ export default function MentorSignupScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
         <View style={styles.header}>
           <Text style={styles.title}>Join as Mentor</Text>
           <Text style={styles.subtitle}>Share your expertise and guide the next generation</Text>
@@ -366,19 +441,28 @@ export default function MentorSignupScreen() {
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
 
-        <View style={styles.buttonContainer}>
+        <View style={[
+          styles.buttonContainer,
+          currentStep === 1 && styles.buttonContainerStep1,
+          currentStep === 3 && styles.buttonContainerStep3
+        ]}>
           {currentStep > 1 && (
             <TouchableOpacity 
               style={styles.backButton} 
               onPress={() => setCurrentStep(currentStep - 1)}
             >
+              <Ionicons name="chevron-back" size={18} color="#666" style={styles.buttonIcon} />
               <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
           )}
           
           {currentStep < 3 ? (
-            <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+            <TouchableOpacity 
+              style={styles.nextButton} 
+              onPress={handleNext}
+            >
               <Text style={styles.nextButtonText}>Next</Text>
+              <Ionicons name="chevron-forward" size={18} color="#fff" style={styles.buttonIcon} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity 
@@ -387,7 +471,7 @@ export default function MentorSignupScreen() {
               disabled={loading}
             >
               <Text style={styles.submitButtonText}>
-                {loading ? 'Creating Account...' : 'Create Mentor Account'}
+                {loading ? 'Creating Account...' : 'Create Account'}
               </Text>
             </TouchableOpacity>
           )}
@@ -406,7 +490,8 @@ export default function MentorSignupScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -415,6 +500,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   header: {
     padding: 20,
@@ -468,18 +560,45 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 10,
   },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 15,
-    marginBottom: 15,
     fontSize: 16,
     backgroundColor: '#f9f9f9',
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 15,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+    paddingRight: 50,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 15,
+    top: 15,
+    padding: 5,
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+    marginBottom: 20
   },
   categoryContainer: {
     flexDirection: 'row',
@@ -517,6 +636,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginBottom: 25,
     justifyContent: 'space-between',
+    rowGap: 4,
   },
   expertiseChip: {
     backgroundColor: '#f9f9f9',
@@ -561,6 +681,8 @@ const styles = StyleSheet.create({
     padding: 15,
     flex: 0.4,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   backButtonText: {
     color: '#666',
@@ -573,6 +695,17 @@ const styles = StyleSheet.create({
     padding: 15,
     flex: 0.4,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  buttonContainerStep1: {
+    justifyContent: 'flex-end',
+  },
+  buttonIcon: {
+    marginHorizontal: 4,
+  },
+  buttonContainerStep3: {
+    gap: 15,
   },
   nextButtonText: {
     color: '#fff',
@@ -583,7 +716,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B5CF6',
     borderRadius: 8,
     padding: 15,
-    flex: 1,
+    flex: 0.6,
     alignItems: 'center',
   },
   submitButtonText: {

@@ -26,6 +26,7 @@
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.HerPower"
+    
     },
     "web": {
       "bundler": "metro",

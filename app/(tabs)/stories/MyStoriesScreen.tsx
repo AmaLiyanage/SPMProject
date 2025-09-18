@@ -157,7 +157,11 @@ export default function MyStoriesScreen() {
       await newSound.playAsync();
 
       newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && "didJustFinish" in status && status.didJustFinish) {
+        if (
+          status.isLoaded &&
+          "didJustFinish" in status &&
+          status.didJustFinish
+        ) {
           setPlayingId(null);
           setSound(null);
         }
@@ -193,11 +197,15 @@ export default function MyStoriesScreen() {
       {/* Post Content */}
       {item.title && <Text style={styles.title}>{item.title}</Text>}
       {(item.text || (item.type === "text" && item.content)) &&
-        renderTextWithHashtags(item.text || item.content)
-      }
+        renderTextWithHashtags(item.text || item.content)}
 
       {item.type === "image" && (
-        <TouchableOpacity onPress={() => { setModalUri(item.content); setModalVisible(true); }}>
+        <TouchableOpacity
+          onPress={() => {
+            setModalUri(item.content);
+            setModalVisible(true);
+          }}
+        >
           <Image source={{ uri: item.content }} style={styles.image} />
         </TouchableOpacity>
       )}
@@ -213,7 +221,10 @@ export default function MyStoriesScreen() {
 
       {item.type === "audio" && (
         <TouchableOpacity
-          style={[styles.playButton, playingId === item.id && styles.playingButton]}
+          style={[
+            styles.playButton,
+            playingId === item.id && styles.playingButton,
+          ]}
           onPress={() => playAudio(item.content, item.id)}
         >
           <MaterialIcons
@@ -239,6 +250,22 @@ export default function MyStoriesScreen() {
           onPress={() => setMenuVisible(null)}
         >
           <View style={styles.menuBox}>
+            {/* Update Option */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(null);
+                router.push({
+                  pathname: "/stories/UpdatePost",
+                  params: { storyId: item.id },
+                });
+              }}
+            >
+              <MaterialIcons name="edit" size={20} color="#8B5CF6" />
+              <Text style={[styles.menuText, { color: "#333" }]}>Update</Text>
+            </TouchableOpacity>
+
+            {/* Delete Option */}
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => {
@@ -255,7 +282,10 @@ export default function MyStoriesScreen() {
 
       {/* Image Modal */}
       <Modal visible={modalVisible} transparent>
-        <TouchableOpacity style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
           <Image source={{ uri: modalUri }} style={styles.modalImage} />
         </TouchableOpacity>
       </Modal>
@@ -266,7 +296,10 @@ export default function MyStoriesScreen() {
     <View style={styles.container}>
       <View style={styles.topBar}>
         {/* Back Button */}
-        <TouchableOpacity onPress={() => router.push("/stories")} style={{ paddingRight: 12 }}>
+        <TouchableOpacity
+          onPress={() => router.push("/stories")}
+          style={{ paddingRight: 12 }}
+        >
           <Ionicons name="arrow-back" size={28} color="#8B5CF6" />
         </TouchableOpacity>
 
@@ -303,7 +336,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     paddingTop: 60,
-    backgroundColor: "white",
+    backgroundColor: "#F5F5F5",
     borderBottomWidth: 1,
     borderBottomColor: "#EEE",
   },
@@ -311,7 +344,7 @@ const styles = StyleSheet.create({
   createButton: { padding: 4 },
 
   card: {
-    backgroundColor: "white",
+    backgroundColor: "#F3E8FF",
     borderRadius: 12,
     marginBottom: 20,
     shadowColor: "#000",

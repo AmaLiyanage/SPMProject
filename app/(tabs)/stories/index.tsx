@@ -256,12 +256,12 @@ export default function StoriesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F5F5" },
-  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, paddingTop: 60, backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#EEE" },
+  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, paddingTop: 60, backgroundColor: "#F5F5F5", borderBottomWidth: 1, borderBottomColor: "#EEE" },
   screenTitle: { fontSize: 22, fontWeight: "bold", color: "#8B5CF6" },
   profileButton: { padding: 4, borderRadius: 20, backgroundColor: "#F0F0F0" },
   topAvatar: { width: 40, height: 40, borderRadius: 20 },
   createButton: { marginLeft: 12, padding: 4 },
-  card: { backgroundColor: "white", borderRadius: 12, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 3, overflow: "hidden" },
+  card: { backgroundColor: "#F3E8FF", borderRadius: 12, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 3, overflow: "hidden" },
   cardHeader: { flexDirection: "row", alignItems: "center", padding: 12, borderBottomWidth: 1, borderBottomColor: "#EEE" },
   avatarCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#8B5CF6", justifyContent: "center", alignItems: "center", marginRight: 10 },
   avatarImage: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },

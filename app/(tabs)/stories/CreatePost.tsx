@@ -1,12 +1,24 @@
-import { Feather, FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { Audio, ResizeMode, Video } from "expo-av";
+import { Feather, FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Audio, AVPlaybackStatus, AVPlaybackStatusSuccess, ResizeMode, Video } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from 'expo-router';
+import { useRouter } from "expo-router";
 import { getAuth } from "firebase/auth";
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { db, storage } from "../../../config/firebase";
 
 const CreatePost = () => {
@@ -70,9 +82,23 @@ const CreatePost = () => {
 
       const newRecording = new Audio.Recording();
       await newRecording.prepareToRecordAsync({
-        android: { extension: '.m4a', outputFormat: Audio.AndroidOutputFormat.MPEG_4, audioEncoder: Audio.AndroidAudioEncoder.AAC, sampleRate: 44100, numberOfChannels: 2, bitRate: 128000 },
-        ios: { extension: '.m4a', outputFormat: Audio.IOSOutputFormat.MPEG4AAC, audioQuality: Audio.IOSAudioQuality.HIGH, sampleRate: 44100, numberOfChannels: 2, bitRate: 128000 },
-        web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
+        android: {
+          extension: ".m4a",
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000,
+        },
+        ios: {
+          extension: ".m4a",
+          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+          audioQuality: Audio.IOSAudioQuality.HIGH,
+          sampleRate: 44100,
+          numberOfChannels: 2,
+          bitRate: 128000,
+        },
+        web: { mimeType: "audio/webm", bitsPerSecond: 128000 },
       });
 
       setRecording(newRecording);
@@ -116,18 +142,29 @@ const CreatePost = () => {
   const playAudio = async () => {
     if (!mediaUri) return;
     try {
-      if (sound) { await sound.stopAsync(); await sound.unloadAsync(); setSound(null); setIsPlaying(false); return; }
+      if (sound) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+        setIsPlaying(false);
+        return;
+      }
 
       const { sound: newSound } = await Audio.Sound.createAsync({ uri: mediaUri });
       setSound(newSound);
       setIsPlaying(true);
-      await newSound.playAsync();
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
+
+      newSound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (!status.isLoaded) return;
+
+        const successStatus = status as AVPlaybackStatusSuccess;
+        if (successStatus.didJustFinish) {
           setIsPlaying(false);
           setSound(null);
         }
       });
+
+      await newSound.playAsync();
     } catch (error: any) {
       console.log("Playback error:", error);
       Alert.alert("Playback failed", error.message);
@@ -137,14 +174,27 @@ const CreatePost = () => {
   const removeMedia = () => {
     setMediaUri(null);
     setMediaType(null);
-    if (sound) { sound.unloadAsync(); setSound(null); setIsPlaying(false); }
+    if (sound) {
+      sound.unloadAsync();
+      setSound(null);
+      setIsPlaying(false);
+    }
     setRecordingStatus("");
   };
 
   const cancelPost = () => {
     Alert.alert("Cancel Story", "Discard this story?", [
       { text: "No", style: "cancel" },
-      { text: "Yes", style: "destructive", onPress: () => { setTitle(""); setTextContent(""); removeMedia(); scrollRef.current?.scrollTo({ y: 0, animated: false }); } }
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: () => {
+          setTitle("");
+          setTextContent("");
+          removeMedia();
+          scrollRef.current?.scrollTo({ y: 0, animated: false });
+        },
+      },
     ]);
   };
 
@@ -172,11 +222,14 @@ const CreatePost = () => {
         const blob = await response.blob();
         await uploadBytes(storageRef, blob);
         const contentUrl = await getDownloadURL(storageRef);
-        await updateDoc(doc(db, "stories", storyRef.id), { content: contentUrl, status: "published" });
+        await updateDoc(doc(db, "stories", storyRef.id), {
+          content: contentUrl,
+          status: "published",
+        });
       }
 
-      setTitle(""); 
-      setTextContent(""); 
+      setTitle("");
+      setTextContent("");
       removeMedia();
       Alert.alert("Success", "Story uploaded!");
       scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -195,7 +248,7 @@ const CreatePost = () => {
         style={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Back Button + Header */}
+        {/* Header */}
         <View style={styles.headerContainer}>
           <TouchableOpacity onPress={() => router.push("/stories")} style={{ marginRight: 12 }}>
             <Ionicons name="arrow-back" size={28} color="#8B5CF6" />
@@ -231,7 +284,11 @@ const CreatePost = () => {
               <Text style={styles.mediaButtonText}>Photo/Video</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.mediaButton, isRecording && styles.recordingButton]} onPress={isRecording ? stopRecording : startRecording} disabled={isUploading}>
+            <TouchableOpacity
+              style={[styles.mediaButton, isRecording && styles.recordingButton]}
+              onPress={isRecording ? stopRecording : startRecording}
+              disabled={isUploading}
+            >
               <FontAwesome name={isRecording ? "stop-circle" : "microphone"} size={24} color={isRecording ? "#FF3B30" : "#007AFF"} />
               <Text style={[styles.mediaButtonText, isRecording && styles.recordingText]}>{isRecording ? "Stop Recording" : "Record Audio"}</Text>
             </TouchableOpacity>
@@ -243,8 +300,12 @@ const CreatePost = () => {
         {mediaUri && (
           <View style={styles.card}>
             <View style={styles.mediaHeader}>
-              <Text style={styles.label}>{mediaType === "image" ? "Image Preview" : mediaType === "video" ? "Video Preview" : "Audio Recording"}</Text>
-              <TouchableOpacity onPress={removeMedia}><Feather name="x-circle" size={24} color="#8E8E93" /></TouchableOpacity>
+              <Text style={styles.label}>
+                {mediaType === "image" ? "Image Preview" : mediaType === "video" ? "Video Preview" : "Audio Recording"}
+              </Text>
+              <TouchableOpacity onPress={removeMedia}>
+                <Feather name="x-circle" size={24} color="#8E8E93" />
+              </TouchableOpacity>
             </View>
 
             {mediaType === "image" && <Image source={{ uri: mediaUri }} style={styles.imagePreview} />}
@@ -256,18 +317,34 @@ const CreatePost = () => {
                 <Text style={styles.audioText}>{isPlaying ? "Playing..." : "Tap to play your recording"}</Text>
               </View>
             )}
-            {mediaType === "video" && <Video ref={videoRef} source={{ uri: mediaUri }} style={styles.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} />}
+            {mediaType === "video" && (
+              <Video
+                ref={videoRef}
+                source={{ uri: mediaUri }}
+                style={styles.videoPreview}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+              />
+            )}
           </View>
         )}
 
         {/* Buttons */}
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <TouchableOpacity style={[styles.uploadButton, { flex: 0.48, backgroundColor: "#FF3B30" }]} onPress={cancelPost} disabled={isUploading}>
+          <TouchableOpacity
+            style={[styles.uploadButton, { flex: 0.48, backgroundColor: "#FF3B30" }]}
+            onPress={cancelPost}
+            disabled={isUploading}
+          >
             <Feather name="x-circle" size={24} color="white" />
             <Text style={styles.uploadButtonText}>Cancel</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.uploadButton, { flex: 0.48 }, (!textContent && !mediaUri) && styles.uploadButtonDisabled]} onPress={uploadStory} disabled={!textContent && !mediaUri || isUploading}>
+          <TouchableOpacity
+            style={[styles.uploadButton, { flex: 0.48 }, (!textContent && !mediaUri) && styles.uploadButtonDisabled]}
+            onPress={uploadStory}
+            disabled={!textContent && !mediaUri || isUploading}
+          >
             {isUploading ? <ActivityIndicator color="white" /> : <Ionicons name="cloud-upload-outline" size={24} color="white" />}
             {!isUploading && <Text style={styles.uploadButtonText}>Publish Story</Text>}
           </TouchableOpacity>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getDefaultProfileImage } from '../utils/imageUtils';
 
@@ -9,6 +9,7 @@ interface ProfilePictureProps {
   size?: number;
   showEditButton?: boolean;
   onEdit?: () => void;
+  loading?: boolean;
 }
 
 export default function ProfilePicture({ 
@@ -16,8 +17,10 @@ export default function ProfilePicture({
   userType, 
   size = 60, 
   showEditButton = false, 
-  onEdit 
+  onEdit,
+  loading = false
 }: ProfilePictureProps) {
+  const [imageLoading, setImageLoading] = useState(!!imageUri);
   const radius = size / 2;
   const editButtonSize = size * 0.3;
   const editButtonRadius = editButtonSize / 2;
@@ -38,8 +41,25 @@ export default function ProfilePicture({
             borderRadius: radius 
           }
         ]}
+        onLoadStart={() => setImageLoading(true)}
+        onLoadEnd={() => setImageLoading(false)}
+        onError={() => setImageLoading(false)}
       />
-      {showEditButton && onEdit && (
+      
+      {/* Loading overlay */}
+      {(loading || imageLoading) && (
+        <View style={[
+          styles.loadingOverlay, 
+          { 
+            width: size, 
+            height: size, 
+            borderRadius: radius 
+          }
+        ]}>
+          <ActivityIndicator size="small" color="#8B5CF6" />
+        </View>
+      )}
+      {showEditButton && onEdit && !loading && (
         <TouchableOpacity 
           style={[
             styles.editButton, 
@@ -52,6 +72,7 @@ export default function ProfilePicture({
             }
           ]}
           onPress={onEdit}
+          disabled={loading || imageLoading}
         >
           <Ionicons 
             name="camera" 
@@ -70,6 +91,14 @@ const styles = StyleSheet.create({
   },
   image: {
     backgroundColor: '#f0f0f0',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editButton: {
     position: 'absolute',

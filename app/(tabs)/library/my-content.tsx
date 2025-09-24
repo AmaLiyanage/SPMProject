@@ -297,6 +297,7 @@ export default function MyContentScreen() {
             </TouchableOpacity>
           </View>
         }
+        ListFooterComponent={<View style={styles.bottomSpacer} />}
       />
     </View>
   );
@@ -545,5 +546,8 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: 'white',
     fontWeight: '600',
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });

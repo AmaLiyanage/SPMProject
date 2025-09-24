@@ -45,6 +45,7 @@ export default function LibraryScreen() {
   const [selectedCategory, setSelectedCategory] = useState<ContentCategory | undefined>();
   const [selectedType, setSelectedType] = useState<ContentType | undefined>();
   const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
+  const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
 
   const loadContent = async (refresh = false) => {
     try {
@@ -226,11 +227,21 @@ export default function LibraryScreen() {
       style={styles.contentCard}
     >
       {item.thumbnailUrl && (
-        <Image
-          source={{ uri: item.thumbnailUrl }}
-          style={styles.contentThumbnail}
-          resizeMode="cover"
-        />
+        <View style={styles.thumbnailContainer}>
+          <Image
+            source={{ uri: item.thumbnailUrl }}
+            style={styles.contentThumbnail}
+            resizeMode="cover"
+            onLoadStart={() => setImageLoading(prev => ({ ...prev, [item.id]: true }))}
+            onLoad={() => setImageLoading(prev => ({ ...prev, [item.id]: false }))}
+            onError={() => setImageLoading(prev => ({ ...prev, [item.id]: false }))}
+          />
+          {imageLoading[item.id] && (
+            <View style={styles.thumbnailLoader}>
+              <ActivityIndicator size="small" color="#9333ea" />
+            </View>
+          )}
+        </View>
       )}
       <View style={styles.contentBody}>
         <View style={styles.contentHeader}>
@@ -384,6 +395,7 @@ export default function LibraryScreen() {
             )}
           </View>
         }
+        ListFooterComponent={<View style={styles.bottomSpacer} />}
       />
 
       {/* Floating Action Button for Mentors */}
@@ -534,9 +546,22 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  thumbnailContainer: {
+    position: 'relative',
+  },
   contentThumbnail: {
     width: '100%',
     height: 192,
+  },
+  thumbnailLoader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   contentBody: {
     padding: 16,
@@ -628,7 +653,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 100,
     right: 24,
     backgroundColor: '#9333ea',
     width: 56,
@@ -644,5 +669,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });

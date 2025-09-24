@@ -263,6 +263,7 @@ export default function BookmarksScreen() {
             </TouchableOpacity>
           </View>
         }
+        ListFooterComponent={<View style={styles.bottomSpacer} />}
       />
     </View>
   );
@@ -495,5 +496,8 @@ const styles = StyleSheet.create({
   browseButtonText: {
     color: 'white',
     fontWeight: '600',
+  },
+  bottomSpacer: {
+    height: 100,
   },
 });

@@ -8,6 +8,9 @@ import {
   Alert,
   Image,
   ActivityIndicator,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -151,93 +154,94 @@ export default function EditContentScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#9333ea" />
-        <Text className="mt-4 text-gray-600">Loading content...</Text>
+        <Text style={styles.loadingText}>Loading content...</Text>
       </View>
     );
   }
 
   if (!content) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
-        <Text className="text-lg text-gray-500">Content not found</Text>
+      <View style={styles.loadingContainer}>
+        <Text style={styles.notFoundText}>Content not found</Text>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Header */}
-      <View className="bg-white pt-12 pb-4 px-4 border-b border-gray-200">
-        <View className="flex-row items-center justify-between">
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className="p-2 -ml-2"
+            style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
-          <Text className="text-xl font-semibold text-gray-900">
+          <Text style={styles.headerTitle}>
             Edit {content.type}
           </Text>
           <TouchableOpacity
             onPress={handleSave}
             disabled={saving}
-            className={`px-4 py-2 rounded-lg ${
-              saving ? 'bg-gray-400' : 'bg-purple-600'
-            }`}
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           >
             {saving ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text className="text-white font-semibold">Save</Text>
+              <Text style={styles.saveButtonText}>Save</Text>
             )}
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView className="flex-1 p-4">
+      <ScrollView style={styles.scrollView}>
         {/* Current Thumbnail */}
         {content.thumbnailUrl && (
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-gray-700 mb-2">
+          <View style={styles.section}>
+            <Text style={styles.label}>
               Current Thumbnail
             </Text>
             <Image
               source={{ uri: content.thumbnailUrl }}
-              className="w-full h-32 rounded-lg"
+              style={styles.thumbnailImage}
               resizeMode="cover"
             />
-            <Text className="text-xs text-gray-500 mt-1">
+            <Text style={styles.helperText}>
               Note: Thumbnail editing will be available in a future update
             </Text>
           </View>
         )}
 
         {/* Publish Status */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+        <View style={styles.section}>
+          <Text style={styles.label}>
             Publication Status
           </Text>
-          <View className="flex-row space-x-3">
+          <View style={styles.statusContainer}>
             <TouchableOpacity
               onPress={() => setIsPublished(true)}
-              className={`flex-1 p-3 rounded-lg border ${
-                isPublished
-                  ? 'border-green-600 bg-green-50'
-                  : 'border-gray-300 bg-white'
-              }`}
+              style={[
+                styles.statusOption,
+                isPublished ? styles.statusOptionActiveGreen : styles.statusOptionInactive
+              ]}
             >
-              <View className="items-center">
+              <View style={styles.statusOptionContent}>
                 <Ionicons
                   name="checkmark-circle"
                   size={24}
                   color={isPublished ? '#16a34a' : '#6b7280'}
                 />
                 <Text
-                  className={`mt-1 font-medium ${
-                    isPublished ? 'text-green-600' : 'text-gray-600'
-                  }`}
+                  style={[
+                    styles.statusOptionText,
+                    isPublished ? styles.statusOptionTextGreen : styles.statusOptionTextInactive
+                  ]}
                 >
                   Published
                 </Text>
@@ -245,22 +249,22 @@ export default function EditContentScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setIsPublished(false)}
-              className={`flex-1 p-3 rounded-lg border ${
-                !isPublished
-                  ? 'border-yellow-600 bg-yellow-50'
-                  : 'border-gray-300 bg-white'
-              }`}
+              style={[
+                styles.statusOption,
+                !isPublished ? styles.statusOptionActiveYellow : styles.statusOptionInactive
+              ]}
             >
-              <View className="items-center">
+              <View style={styles.statusOptionContent}>
                 <Ionicons
                   name="time"
                   size={24}
                   color={!isPublished ? '#ca8a04' : '#6b7280'}
                 />
                 <Text
-                  className={`mt-1 font-medium ${
-                    !isPublished ? 'text-yellow-600' : 'text-gray-600'
-                  }`}
+                  style={[
+                    styles.statusOptionText,
+                    !isPublished ? styles.statusOptionTextYellow : styles.statusOptionTextInactive
+                  ]}
                 >
                   Draft
                 </Text>
@@ -270,25 +274,25 @@ export default function EditContentScreen() {
         </View>
 
         {/* Title */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+        <View style={styles.section}>
+          <Text style={styles.label}>
             Title *
           </Text>
           <TextInput
             value={title}
             onChangeText={setTitle}
             placeholder="Enter a compelling title..."
-            className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+            style={styles.input}
             maxLength={100}
           />
-          <Text className="text-xs text-gray-500 mt-1">
+          <Text style={styles.characterCount}>
             {title.length}/100 characters
           </Text>
         </View>
 
         {/* Description */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+        <View style={styles.section}>
+          <Text style={styles.label}>
             Description *
           </Text>
           <TextInput
@@ -297,40 +301,40 @@ export default function EditContentScreen() {
             placeholder="Brief description of your content..."
             multiline
             numberOfLines={3}
-            className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+            style={[styles.input, styles.textArea]}
             maxLength={300}
             textAlignVertical="top"
           />
-          <Text className="text-xs text-gray-500 mt-1">
+          <Text style={styles.characterCount}>
             {description.length}/300 characters
           </Text>
         </View>
 
         {/* Category */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+        <View style={styles.section}>
+          <Text style={styles.label}>
             Category *
           </Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            className="mb-2"
+            style={styles.categoryScroll}
           >
-            <View className="flex-row space-x-2">
+            <View style={styles.categoryContainer}>
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity
                   key={cat.key}
                   onPress={() => setCategory(cat.key)}
-                  className={`px-4 py-2 rounded-full border ${
-                    category === cat.key
-                      ? 'bg-purple-600 border-purple-600'
-                      : 'bg-white border-gray-300'
-                  }`}
+                  style={[
+                    styles.categoryButton,
+                    category === cat.key ? styles.categoryButtonActive : styles.categoryButtonInactive
+                  ]}
                 >
                   <Text
-                    className={`text-sm ${
-                      category === cat.key ? 'text-white' : 'text-gray-700'
-                    }`}
+                    style={[
+                      styles.categoryButtonText,
+                      category === cat.key ? styles.categoryButtonTextActive : styles.categoryButtonTextInactive
+                    ]}
                   >
                     {cat.label}
                   </Text>
@@ -341,24 +345,24 @@ export default function EditContentScreen() {
         </View>
 
         {/* Tags */}
-        <View className="mb-4">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+        <View style={styles.section}>
+          <Text style={styles.label}>
             Tags
           </Text>
           <TextInput
             value={tags}
             onChangeText={setTags}
             placeholder="Enter tags separated by commas..."
-            className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+            style={styles.input}
           />
-          <Text className="text-xs text-gray-500 mt-1">
+          <Text style={styles.helperText}>
             Example: leadership, women in tech, career growth
           </Text>
         </View>
 
         {/* Content */}
-        <View className="mb-6">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+        <View style={styles.section}>
+          <Text style={styles.label}>
             {content.type === 'article' ? 'Article Content' : 'Video Description'} *
           </Text>
           <TextInput
@@ -371,44 +375,248 @@ export default function EditContentScreen() {
             }
             multiline
             numberOfLines={15}
-            className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+            style={[styles.input, styles.contentTextArea]}
             textAlignVertical="top"
           />
         </View>
 
         {/* Content Stats */}
-        <View className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
-          <Text className="text-sm font-medium text-gray-700 mb-3">
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsTitle}>
             Content Statistics
           </Text>
-          <View className="flex-row justify-between">
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.views}
               </Text>
-              <Text className="text-xs text-gray-500">Views</Text>
+              <Text style={styles.statLabel}>Views</Text>
             </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.averageRating.toFixed(1)}
               </Text>
-              <Text className="text-xs text-gray-500">Rating</Text>
+              <Text style={styles.statLabel}>Rating</Text>
             </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.totalRatings}
               </Text>
-              <Text className="text-xs text-gray-500">Reviews</Text>
+              <Text style={styles.statLabel}>Reviews</Text>
             </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.bookmarkCount}
               </Text>
-              <Text className="text-xs text-gray-500">Bookmarks</Text>
+              <Text style={styles.statLabel}>Bookmarks</Text>
             </View>
           </View>
         </View>
+        <View style={styles.bottomSpacer} />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#6b7280',
+  },
+  notFoundText: {
+    fontSize: 18,
+    color: '#6b7280',
+  },
+  header: {
+    backgroundColor: 'white',
+    paddingTop: 48,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  saveButton: {
+    backgroundColor: '#9333ea',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+    padding: 16,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: 128,
+    borderRadius: 8,
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statusOption: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusOptionActiveGreen: {
+    borderColor: '#16a34a',
+    backgroundColor: '#f0fdf4',
+  },
+  statusOptionActiveYellow: {
+    borderColor: '#ca8a04',
+    backgroundColor: '#fefce8',
+  },
+  statusOptionInactive: {
+    borderColor: '#d1d5db',
+    backgroundColor: 'white',
+  },
+  statusOptionContent: {
+    alignItems: 'center',
+  },
+  statusOptionText: {
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  statusOptionTextGreen: {
+    color: '#16a34a',
+  },
+  statusOptionTextYellow: {
+    color: '#ca8a04',
+  },
+  statusOptionTextInactive: {
+    color: '#6b7280',
+  },
+  input: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#111827',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  contentTextArea: {
+    height: 300,
+    textAlignVertical: 'top',
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  categoryScroll: {
+    marginBottom: 8,
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryButtonActive: {
+    backgroundColor: '#9333ea',
+    borderColor: '#9333ea',
+  },
+  categoryButtonInactive: {
+    backgroundColor: 'white',
+    borderColor: '#d1d5db',
+  },
+  categoryButtonText: {
+    fontSize: 14,
+  },
+  categoryButtonTextActive: {
+    color: 'white',
+  },
+  categoryButtonTextInactive: {
+    color: '#374151',
+  },
+  statsContainer: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  statsTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  bottomSpacer: {
+    height: 100,
+  },
+});

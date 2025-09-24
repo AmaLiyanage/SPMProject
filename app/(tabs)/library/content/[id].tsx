@@ -9,6 +9,7 @@ import {
   Alert,
   Share,
   Dimensions,
+  StyleSheet,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -34,6 +35,7 @@ export default function ContentDetailScreen() {
   const [userRating, setUserRating] = useState(0);
   const [ratings, setRatings] = useState<ContentRating[]>([]);
   const [showRatings, setShowRatings] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
   useEffect(() => {
     if (id) {
@@ -128,13 +130,13 @@ export default function ContentDetailScreen() {
   };
 
   const renderStarRating = (rating: number, onPress?: (rating: number) => void) => (
-    <View className="flex-row">
+    <View style={styles.starRatingContainer}>
       {[1, 2, 3, 4, 5].map((star) => (
         <TouchableOpacity
           key={star}
           onPress={() => onPress?.(star)}
           disabled={!onPress}
-          className="mr-1"
+          style={styles.starButton}
         >
           <Ionicons
             name={star <= rating ? 'star' : 'star-outline'}
@@ -148,37 +150,37 @@ export default function ContentDetailScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#9333ea" />
-        <Text className="mt-4 text-gray-600">Loading content...</Text>
+        <Text style={styles.loadingText}>Loading content...</Text>
       </View>
     );
   }
 
   if (!content) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
-        <Text className="text-lg text-gray-500">Content not found</Text>
+      <View style={styles.loadingContainer}>
+        <Text style={styles.notFoundText}>Content not found</Text>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-white">
+    <View style={styles.container}>
       {/* Header */}
-      <View className="bg-white pt-12 pb-4 px-4 border-b border-gray-200">
-        <View className="flex-row items-center justify-between">
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className="p-2 -ml-2"
+            style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
           
-          <View className="flex-row items-center space-x-3">
+          <View style={styles.headerActions}>
             <TouchableOpacity
               onPress={handleShare}
-              className="p-2"
+              style={styles.actionButton}
             >
               <Ionicons name="share-outline" size={24} color="#6b7280" />
             </TouchableOpacity>
@@ -186,7 +188,7 @@ export default function ContentDetailScreen() {
             {userProfile && (
               <TouchableOpacity
                 onPress={handleBookmark}
-                className="p-2"
+                style={styles.actionButton}
               >
                 <Ionicons
                   name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
@@ -199,96 +201,106 @@ export default function ContentDetailScreen() {
         </View>
       </View>
 
-      <ScrollView className="flex-1">
+      <ScrollView style={styles.scrollView}>
         {/* Thumbnail */}
         {content.thumbnailUrl && (
-          <Image
-            source={{ uri: content.thumbnailUrl }}
-            style={{ width, height: width * 0.56 }} // 16:9 aspect ratio
-            resizeMode="cover"
-          />
+          <View style={styles.thumbnailContainer}>
+            <Image
+              source={{ uri: content.thumbnailUrl }}
+              style={[styles.thumbnail, { width, height: width * 0.56 }]}
+              resizeMode="cover"
+              onLoadStart={() => setImageLoading(true)}
+              onLoad={() => setImageLoading(false)}
+              onError={() => setImageLoading(false)}
+            />
+            {imageLoading && (
+              <View style={[styles.thumbnailLoader, { width, height: width * 0.56 }]}>
+                <ActivityIndicator size="large" color="#9333ea" />
+              </View>
+            )}
+          </View>
         )}
 
-        <View className="p-4">
+        <View style={styles.contentContainer}>
           {/* Content Type Badge */}
-          <View className="flex-row items-center mb-3">
+          <View style={styles.typeBadgeContainer}>
             <Ionicons
               name={content.type === 'video' ? 'play-circle' : 'document-text'}
               size={20}
               color="#9333ea"
             />
-            <Text className="text-purple-600 ml-2 uppercase text-sm font-medium">
+            <Text style={styles.typeBadgeText}>
               {content.type}
             </Text>
             {content.type === 'video' && content.duration && (
-              <Text className="text-gray-500 ml-3 text-sm">
+              <Text style={styles.durationText}>
                 {Math.floor(content.duration / 60)}:{(content.duration % 60).toString().padStart(2, '0')}
               </Text>
             )}
           </View>
 
           {/* Title */}
-          <Text className="text-2xl font-bold text-gray-900 mb-3">
+          <Text style={styles.title}>
             {content.title}
           </Text>
 
           {/* Author Info */}
-          <View className="flex-row items-center mb-4">
+          <View style={styles.authorContainer}>
             <Image
               source={{ 
                 uri: content.authorProfilePicture || 'https://via.placeholder.com/40' 
               }}
-              className="w-10 h-10 rounded-full mr-3"
+              style={styles.authorImage}
             />
-            <View className="flex-1">
-              <Text className="text-base font-medium text-gray-900">
+            <View style={styles.authorInfo}>
+              <Text style={styles.authorName}>
                 {content.authorName}
               </Text>
-              <Text className="text-sm text-gray-500">
+              <Text style={styles.authorDate}>
                 {content.createdAt.toLocaleDateString()}
               </Text>
             </View>
           </View>
 
           {/* Stats */}
-          <View className="flex-row items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.views}
               </Text>
-              <Text className="text-xs text-gray-500">Views</Text>
+              <Text style={styles.statLabel}>Views</Text>
             </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.averageRating.toFixed(1)}
               </Text>
-              <Text className="text-xs text-gray-500">Rating</Text>
+              <Text style={styles.statLabel}>Rating</Text>
             </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.totalRatings}
               </Text>
-              <Text className="text-xs text-gray-500">Reviews</Text>
+              <Text style={styles.statLabel}>Reviews</Text>
             </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-gray-900">
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
                 {content.bookmarkCount}
               </Text>
-              <Text className="text-xs text-gray-500">Saved</Text>
+              <Text style={styles.statLabel}>Saved</Text>
             </View>
           </View>
 
           {/* Category and Tags */}
-          <View className="mb-4">
-            <View className="flex-row flex-wrap">
-              <View className="bg-purple-100 px-3 py-1 rounded-full mr-2 mb-2">
-                <Text className="text-purple-700 text-sm capitalize">
+          <View style={styles.tagsContainer}>
+            <View style={styles.tagsWrapper}>
+              <View style={styles.categoryTag}>
+                <Text style={styles.categoryTagText}>
                   {content.category.replace('-', ' ')}
                 </Text>
               </View>
               {content.tags.map((tag, index) => (
-                <View key={index} className="bg-gray-100 px-3 py-1 rounded-full mr-2 mb-2">
-                  <Text className="text-gray-700 text-sm">
+                <View key={index} style={styles.tag}>
+                  <Text style={styles.tagText}>
                     {tag}
                   </Text>
                 </View>
@@ -297,31 +309,31 @@ export default function ContentDetailScreen() {
           </View>
 
           {/* Description */}
-          <Text className="text-gray-700 text-base mb-4 leading-6">
+          <Text style={styles.description}>
             {content.description}
           </Text>
 
           {/* Video Player or Article Content */}
           {content.type === 'video' && content.videoUrl ? (
-            <View className="mb-6">
-              <Text className="text-lg font-semibold mb-3 text-gray-900">
+            <View style={styles.contentSection}>
+              <Text style={styles.sectionTitle}>
                 Video Content
               </Text>
               {/* Note: You'd integrate a proper video player here */}
-              <View className="bg-gray-200 rounded-lg p-4 items-center">
+              <View style={styles.videoPlaceholder}>
                 <Ionicons name="play-circle" size={48} color="#9333ea" />
-                <Text className="text-gray-600 mt-2">Video Player Coming Soon</Text>
-                <Text className="text-xs text-gray-500 mt-1">
+                <Text style={styles.videoPlaceholderText}>Video Player Coming Soon</Text>
+                <Text style={styles.videoUrlText}>
                   URL: {content.videoUrl}
                 </Text>
               </View>
             </View>
           ) : (
-            <View className="mb-6">
-              <Text className="text-lg font-semibold mb-3 text-gray-900">
+            <View style={styles.contentSection}>
+              <Text style={styles.sectionTitle}>
                 Article
               </Text>
-              <Text className="text-gray-800 text-base leading-7">
+              <Text style={styles.articleContent}>
                 {content.content}
               </Text>
             </View>
@@ -329,13 +341,13 @@ export default function ContentDetailScreen() {
 
           {/* Rating Section */}
           {userProfile && (
-            <View className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <Text className="text-lg font-semibold mb-3 text-gray-900">
+            <View style={styles.ratingSection}>
+              <Text style={styles.ratingSectionTitle}>
                 Rate this {content.type}
               </Text>
               {renderStarRating(userRating, handleRate)}
               {userRating > 0 && (
-                <Text className="text-sm text-green-600 mt-2">
+                <Text style={styles.ratingSuccessText}>
                   Thank you for your rating!
                 </Text>
               )}
@@ -344,12 +356,12 @@ export default function ContentDetailScreen() {
 
           {/* Reviews Section */}
           {ratings.length > 0 && (
-            <View className="mb-6">
+            <View style={styles.reviewsSection}>
               <TouchableOpacity
                 onPress={() => setShowRatings(!showRatings)}
-                className="flex-row items-center justify-between mb-3"
+                style={styles.reviewsHeader}
               >
-                <Text className="text-lg font-semibold text-gray-900">
+                <Text style={styles.reviewsTitle}>
                   Reviews ({ratings.length})
                 </Text>
                 <Ionicons
@@ -362,15 +374,15 @@ export default function ContentDetailScreen() {
               {showRatings && (
                 <View>
                   {ratings.slice(0, 5).map((rating) => (
-                    <View key={rating.id} className="mb-3 p-3 bg-gray-50 rounded-lg">
-                      <View className="flex-row items-center justify-between mb-2">
+                    <View key={rating.id} style={styles.reviewItem}>
+                      <View style={styles.reviewHeader}>
                         {renderStarRating(rating.rating)}
-                        <Text className="text-xs text-gray-500">
+                        <Text style={styles.reviewDate}>
                           {rating.createdAt.toLocaleDateString()}
                         </Text>
                       </View>
                       {rating.review && (
-                        <Text className="text-gray-700 text-sm">
+                        <Text style={styles.reviewText}>
                           {rating.review}
                         </Text>
                       )}
@@ -382,6 +394,267 @@ export default function ContentDetailScreen() {
           )}
         </View>
       </ScrollView>
+      <View style={styles.bottomSpacer} />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#6b7280',
+  },
+  notFoundText: {
+    fontSize: 18,
+    color: '#6b7280',
+  },
+  header: {
+    backgroundColor: 'white',
+    paddingTop: 48,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionButton: {
+    padding: 8,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  thumbnailContainer: {
+    position: 'relative',
+  },
+  thumbnail: {
+    // Dynamic width and height are passed as style prop
+  },
+  thumbnailLoader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  contentContainer: {
+    padding: 16,
+  },
+  typeBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  typeBadgeText: {
+    color: '#9333ea',
+    marginLeft: 8,
+    textTransform: 'uppercase',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  durationText: {
+    color: '#6b7280',
+    marginLeft: 12,
+    fontSize: 14,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  authorImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  authorInfo: {
+    flex: 1,
+  },
+  authorName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  authorDate: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  tagsContainer: {
+    marginBottom: 16,
+  },
+  tagsWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  categoryTag: {
+    backgroundColor: '#f3e8ff',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  categoryTagText: {
+    color: '#7c3aed',
+    fontSize: 14,
+    textTransform: 'capitalize',
+  },
+  tag: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  tagText: {
+    color: '#374151',
+    fontSize: 14,
+  },
+  description: {
+    color: '#374151',
+    fontSize: 16,
+    marginBottom: 16,
+    lineHeight: 24,
+  },
+  contentSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#111827',
+  },
+  videoPlaceholder: {
+    backgroundColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+  videoPlaceholderText: {
+    color: '#6b7280',
+    marginTop: 8,
+  },
+  videoUrlText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  articleContent: {
+    color: '#1f2937',
+    fontSize: 16,
+    lineHeight: 28,
+  },
+  ratingSection: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  ratingSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#111827',
+  },
+  ratingSuccessText: {
+    fontSize: 14,
+    color: '#10b981',
+    marginTop: 8,
+  },
+  starRatingContainer: {
+    flexDirection: 'row',
+  },
+  starButton: {
+    marginRight: 4,
+  },
+  reviewsSection: {
+    marginBottom: 24,
+  },
+  reviewsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  reviewsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  reviewItem: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  reviewText: {
+    color: '#374151',
+    fontSize: 14,
+  },
+  bottomSpacer: {
+    height: 100,
+  },
+});

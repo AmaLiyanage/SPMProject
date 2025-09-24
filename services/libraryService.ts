@@ -72,23 +72,19 @@ export async function createLibraryContent(
       videoUrl = await getDownloadURL(videoSnapshot.ref);
     }
 
-    const newContent: Omit<LibraryContent, 'id'> = {
+    const newContent: any = {
       title: contentData.title,
       description: contentData.description,
       content: contentData.content,
       type: contentData.type,
       category: contentData.category,
       tags: contentData.tags,
-      thumbnailUrl,
-      videoUrl: contentData.type === 'video' ? videoUrl : undefined,
-      duration: contentData.duration,
       
       createdBy: mentorId,
       authorName: mentorName,
-      authorProfilePicture: mentorProfilePicture,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      publishedAt: new Date(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      publishedAt: serverTimestamp(),
       isPublished: true,
       
       views: 0,
@@ -97,12 +93,24 @@ export async function createLibraryContent(
       bookmarkCount: 0,
     };
 
-    const docRef = await addDoc(collection(db, 'libraryContent'), {
-      ...newContent,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      publishedAt: serverTimestamp(),
-    });
+    // Only add fields if they have values
+    if (thumbnailUrl) {
+      newContent.thumbnailUrl = thumbnailUrl;
+    }
+    
+    if (mentorProfilePicture) {
+      newContent.authorProfilePicture = mentorProfilePicture;
+    }
+    
+    if (contentData.type === 'video' && videoUrl) {
+      newContent.videoUrl = videoUrl;
+    }
+    
+    if (contentData.duration) {
+      newContent.duration = contentData.duration;
+    }
+
+    const docRef = await addDoc(collection(db, 'libraryContent'), newContent);
 
     return docRef.id;
   } catch (error) {
@@ -215,23 +223,57 @@ export async function getMentorContent(mentorId: string): Promise<LibraryContent
 // ==================== PUBLIC BROWSING ====================
 
 /**
- * Get library content with filtering and pagination (no indexes required)
+ * Get library content with filtering and pagination
  */
 export async function getLibraryContent(
   filters: LibrarySearchFilters = {},
-  pageSize: number = 50,
+  pageSize: number = 20,
   lastDoc?: DocumentSnapshot
 ): Promise<{ content: LibraryContent[]; lastDoc?: DocumentSnapshot }> {
   try {
-    // Use the simplest possible query to avoid any indexing requirements
-    const q = query(
-      collection(db, 'libraryContent'),
-      limit(pageSize)
-    );
+    const constraints: QueryConstraint[] = [
+      where('isPublished', '==', true)
+    ];
 
+    // Apply filters
+    if (filters.category) {
+      constraints.push(where('category', '==', filters.category));
+    }
+    if (filters.type) {
+      constraints.push(where('type', '==', filters.type));
+    }
+    if (filters.authorId) {
+      constraints.push(where('createdBy', '==', filters.authorId));
+    }
+
+    // Apply sorting
+    switch (filters.sortBy) {
+      case 'rating':
+        constraints.push(orderBy('averageRating', 'desc'));
+        break;
+      case 'views':
+        constraints.push(orderBy('views', 'desc'));
+        break;
+      case 'title':
+        constraints.push(orderBy('title', 'asc'));
+        break;
+      case 'oldest':
+        constraints.push(orderBy('publishedAt', 'asc'));
+        break;
+      default:
+        constraints.push(orderBy('publishedAt', 'desc'));
+    }
+
+    constraints.push(limit(pageSize));
+
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc));
+    }
+
+    const q = query(collection(db, 'libraryContent'), ...constraints);
     const snapshot = await getDocs(q);
 
-    let content = snapshot.docs.map(doc => ({
+    const content = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
       createdAt: doc.data().createdAt?.toDate() || new Date(),
@@ -239,48 +281,9 @@ export async function getLibraryContent(
       publishedAt: doc.data().publishedAt?.toDate(),
     })) as LibraryContent[];
 
-    // Apply all filtering client-side
-    content = content.filter(item => {
-      // Filter out unpublished content
-      if (!item.isPublished) return false;
-      
-      // Apply category filter
-      if (filters.category && item.category !== filters.category) return false;
-      
-      // Apply type filter
-      if (filters.type && item.type !== filters.type) return false;
-      
-      // Apply author filter
-      if (filters.authorId && item.createdBy !== filters.authorId) return false;
-      
-      return true;
-    });
-
-    // Apply client-side sorting
-    switch (filters.sortBy) {
-      case 'rating':
-        content.sort((a, b) => b.averageRating - a.averageRating);
-        break;
-      case 'views':
-        content.sort((a, b) => b.views - a.views);
-        break;
-      case 'title':
-        content.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case 'oldest':
-        content.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-        break;
-      default: // newest
-        content.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    }
-
-    // Apply pagination on filtered results
-    const startIndex = lastDoc ? content.findIndex(item => item.id === lastDoc.id) + 1 : 0;
-    const paginatedContent = content.slice(startIndex, startIndex + Math.min(pageSize, 20));
-
     return {
-      content: paginatedContent,
-      lastDoc: paginatedContent.length > 0 ? snapshot.docs.find(doc => doc.id === paginatedContent[paginatedContent.length - 1].id) : undefined
+      content,
+      lastDoc: snapshot.docs[snapshot.docs.length - 1]
     };
   } catch (error) {
     console.error('Error fetching library content:', error);
@@ -289,12 +292,15 @@ export async function getLibraryContent(
 }
 
 /**
- * Search library content by text (no indexes required)
+ * Search library content by text
  */
 export async function searchLibraryContent(searchQuery: string): Promise<LibraryContent[]> {
   try {
-    // Use the simplest possible query
-    const q = query(collection(db, 'libraryContent'));
+    const q = query(
+      collection(db, 'libraryContent'),
+      where('isPublished', '==', true),
+      orderBy('publishedAt', 'desc')
+    );
 
     const snapshot = await getDocs(q);
     const allContent = snapshot.docs.map(doc => ({
@@ -305,17 +311,14 @@ export async function searchLibraryContent(searchQuery: string): Promise<Library
       publishedAt: doc.data().publishedAt?.toDate(),
     })) as LibraryContent[];
 
-    // Client-side filtering for search and published status
+    // Client-side filtering for search
     const searchLower = searchQuery.toLowerCase();
-    return allContent
-      .filter(content => content.isPublished) // Filter published content
-      .filter(content =>
-        content.title.toLowerCase().includes(searchLower) ||
-        content.description.toLowerCase().includes(searchLower) ||
-        content.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
-        content.authorName.toLowerCase().includes(searchLower)
-      )
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Sort by newest first
+    return allContent.filter(content =>
+      content.title.toLowerCase().includes(searchLower) ||
+      content.description.toLowerCase().includes(searchLower) ||
+      content.tags.some(tag => tag.toLowerCase().includes(searchLower)) ||
+      content.authorName.toLowerCase().includes(searchLower)
+    );
   } catch (error) {
     console.error('Error searching library content:', error);
     throw error;

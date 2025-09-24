@@ -490,21 +490,31 @@ export async function rateContent(
     if (!existingSnapshot.empty) {
       // Update existing rating
       const ratingDoc = existingSnapshot.docs[0];
-      await updateDoc(ratingDoc.ref, {
+      const updateData: any = {
         rating,
-        review,
         updatedAt: serverTimestamp(),
-      });
+      };
+      
+      if (review) {
+        updateData.review = review;
+      }
+      
+      await updateDoc(ratingDoc.ref, updateData);
     } else {
       // Create new rating
-      await addDoc(collection(db, 'contentRatings'), {
+      const newRating: any = {
         userId,
         contentId,
         rating,
-        review,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      };
+      
+      if (review) {
+        newRating.review = review;
+      }
+      
+      await addDoc(collection(db, 'contentRatings'), newRating);
     }
 
     // Recalculate average rating

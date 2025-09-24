@@ -340,7 +340,7 @@ export default function ContentDetailScreen() {
           )}
 
           {/* Rating Section */}
-          {userProfile && (
+          {userProfile && content.createdBy !== userProfile.uid && (
             <View style={styles.ratingSection}>
               <Text style={styles.ratingSectionTitle}>
                 Rate this {content.type}
@@ -351,6 +351,18 @@ export default function ContentDetailScreen() {
                   Thank you for your rating!
                 </Text>
               )}
+            </View>
+          )}
+          
+          {/* Author's Own Content Message */}
+          {userProfile && content.createdBy === userProfile.uid && (
+            <View style={styles.ownContentSection}>
+              <Text style={styles.ownContentTitle}>
+                Your {content.type}
+              </Text>
+              <Text style={styles.ownContentText}>
+                You cannot rate your own content, but you can view ratings from other users below.
+              </Text>
             </View>
           )}
 
@@ -613,6 +625,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#10b981',
     marginTop: 8,
+  },
+  ownContentSection: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  ownContentTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#0369a1',
+  },
+  ownContentText: {
+    fontSize: 14,
+    color: '#0c4a6e',
+    lineHeight: 20,
   },
   starRatingContainer: {
     flexDirection: 'row',

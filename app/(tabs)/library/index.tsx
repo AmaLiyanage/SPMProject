@@ -22,6 +22,8 @@ import {
   isContentBookmarked 
 } from '../../../services/libraryService';
 import { LibraryContent, ContentCategory, ContentType, LibrarySearchFilters } from '../../../types/library';
+import { useOfflineLibrary } from '../../../hooks/useOfflineLibrary';
+import { OfflineImage } from '../../../components/OfflineImage';
 
 const CATEGORIES: { key: ContentCategory; label: string; icon: string }[] = [
   { key: 'leadership', label: 'Leadership', icon: 'star' },
@@ -38,44 +40,51 @@ const CATEGORIES: { key: ContentCategory; label: string; icon: string }[] = [
 
 export default function LibraryScreen() {
   const { userProfile } = useAuth();
-  const [content, setContent] = useState<LibraryContent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ContentCategory | undefined>();
   const [selectedType, setSelectedType] = useState<ContentType | undefined>();
   const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
   const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
+  
+  // Use offline-first library hook
+  const {
+    content,
+    isLoading: loading,
+    isSyncing,
+    isOnline,
+    lastSyncTime,
+    cacheStats,
+    actions: {
+      loadContent,
+      searchContent,
+      bookmarkContentOffline,
+      removeBookmarkOffline,
+      prefetchContent,
+    }
+  } = useOfflineLibrary(userProfile?.uid);
 
-  const loadContent = async (refresh = false) => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleLoadContent = async (refresh = false) => {
     try {
       if (refresh) setRefreshing(true);
-      else setLoading(true);
 
-      let results: LibraryContent[];
+      const filters: LibrarySearchFilters = {
+        category: selectedCategory,
+        type: selectedType,
+        sortBy: 'newest',
+      };
 
-      if (searchQuery.trim()) {
-        results = await searchLibraryContent(searchQuery);
-      } else {
-        const filters: LibrarySearchFilters = {
-          category: selectedCategory,
-          type: selectedType,
-          sortBy: 'newest',
-        };
-        const response = await getLibraryContent(filters, 50);
-        results = response.content;
-      }
-
-      setContent(results);
+      await loadContent(filters, refresh);
 
       // Load bookmark status for current user
-      if (userProfile) {
-        const bookmarkPromises = results.map(item => 
+      if (userProfile && content.length > 0) {
+        const bookmarkPromises = content.map(item => 
           isContentBookmarked(userProfile.uid, item.id)
         );
         const bookmarkStatuses = await Promise.all(bookmarkPromises);
         const bookmarkedSet = new Set<string>();
-        results.forEach((item, index) => {
+        content.forEach((item, index) => {
           if (bookmarkStatuses[index]) {
             bookmarkedSet.add(item.id);
           }
@@ -86,24 +95,32 @@ export default function LibraryScreen() {
       console.error('Error loading content:', error);
       Alert.alert('Error', 'Failed to load library content. Please try again.');
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    loadContent();
+    handleLoadContent();
   }, [selectedCategory, selectedType]);
 
   useEffect(() => {
-    const delayedSearch = setTimeout(() => {
-      if (searchQuery.trim() || (!searchQuery && content.length === 0)) {
-        loadContent();
+    const delayedSearch = setTimeout(async () => {
+      if (searchQuery.trim()) {
+        const results = await searchContent(searchQuery);
+        // Handle search results if needed
+      } else if (!searchQuery && content.length === 0) {
+        handleLoadContent();
       }
     }, 500);
 
     return () => clearTimeout(delayedSearch);
   }, [searchQuery]);
+
+  // Prefetch popular content from all mentors on mount
+  useEffect(() => {
+    // Always prefetch regardless of user (since library shows all mentors' content)
+    prefetchContent(['leadership', 'career-development', 'entrepreneurship']);
+  }, []);
 
   const handleBookmark = async (contentId: string) => {
     if (!userProfile) {
@@ -115,14 +132,14 @@ export default function LibraryScreen() {
       const isBookmarked = bookmarkedItems.has(contentId);
       
       if (isBookmarked) {
-        await removeBookmark(userProfile.uid, contentId);
+        await removeBookmarkOffline(contentId);
         setBookmarkedItems(prev => {
           const newSet = new Set(prev);
           newSet.delete(contentId);
           return newSet;
         });
       } else {
-        await bookmarkContent(userProfile.uid, contentId);
+        await bookmarkContentOffline(contentId);
         setBookmarkedItems(prev => new Set(prev).add(contentId));
       }
     } catch (error) {
@@ -222,89 +239,86 @@ export default function LibraryScreen() {
   );
 
   const renderContentItem = ({ item }: { item: LibraryContent }) => (
-    <TouchableOpacity
-      onPress={() => router.push(`/library/content/${item.id}`)}
-      style={styles.contentCard}
-    >
-      {item.thumbnailUrl && (
-        <View style={styles.thumbnailContainer}>
-          <Image
-            source={{ uri: item.thumbnailUrl }}
+      <TouchableOpacity
+        onPress={() => router.push(`/library/content/${item.id}`)}
+        style={styles.contentCard}
+      >
+        {item.thumbnailUrl && (
+          <OfflineImage
+            uri={item.thumbnailUrl}
             style={styles.contentThumbnail}
             resizeMode="cover"
-            onLoadStart={() => setImageLoading(prev => ({ ...prev, [item.id]: true }))}
-            onLoad={() => setImageLoading(prev => ({ ...prev, [item.id]: false }))}
-            onError={() => setImageLoading(prev => ({ ...prev, [item.id]: false }))}
+            priority="medium"
+            fallbackIcon="image-outline"
+            placeholder={
+              <View style={styles.thumbnailLoader}>
+                <ActivityIndicator size="small" color="#9333ea" />
+              </View>
+            }
           />
-          {imageLoading[item.id] && (
-            <View style={styles.thumbnailLoader}>
-              <ActivityIndicator size="small" color="#9333ea" />
+        )}
+        <View style={styles.contentBody}>
+          <View style={styles.contentHeader}>
+            <View style={styles.contentTypeContainer}>
+              <Ionicons
+                name={item.type === 'video' ? 'play-circle' : 'document-text'}
+                size={16}
+                color="#9333ea"
+              />
+              <Text style={styles.contentType}>
+                {item.type}
+              </Text>
             </View>
-          )}
-        </View>
-      )}
-      <View style={styles.contentBody}>
-        <View style={styles.contentHeader}>
-          <View style={styles.contentTypeContainer}>
-            <Ionicons
-              name={item.type === 'video' ? 'play-circle' : 'document-text'}
-              size={16}
-              color="#9333ea"
-            />
-            <Text style={styles.contentType}>
-              {item.type}
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => handleBookmark(item.id)}
-            style={styles.bookmarkButton}
-          >
-            <Ionicons
-              name={bookmarkedItems.has(item.id) ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={bookmarkedItems.has(item.id) ? '#9333ea' : '#6b7280'}
-            />
-          </TouchableOpacity>
-        </View>
-        
-        <Text style={styles.contentTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        
-        <Text style={styles.contentDescription} numberOfLines={3}>
-          {item.description}
-        </Text>
-        
-        <View style={styles.contentFooter}>
-          <View style={styles.authorContainer}>
-            <Image
-              source={{ 
-                uri: item.authorProfilePicture || 'https://via.placeholder.com/32' 
-              }}
-              style={styles.authorImage}
-            />
-            <Text style={styles.authorName}>
-              {item.authorName}
-            </Text>
+            <TouchableOpacity
+              onPress={() => handleBookmark(item.id)}
+              style={styles.bookmarkButton}
+            >
+              <Ionicons
+                name={bookmarkedItems.has(item.id) ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={bookmarkedItems.has(item.id) ? '#9333ea' : '#6b7280'}
+              />
+            </TouchableOpacity>
           </View>
           
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Ionicons name="star" size={12} color="#fbbf24" />
-              <Text style={styles.statText}>
-                {item.averageRating.toFixed(1)}
+          <Text style={styles.contentTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          
+          <Text style={styles.contentDescription} numberOfLines={3}>
+            {item.description}
+          </Text>
+          
+          <View style={styles.contentFooter}>
+            <View style={styles.authorContainer}>
+              <Image
+                source={{ 
+                  uri: item.authorProfilePicture || 'https://via.placeholder.com/32' 
+                }}
+                style={styles.authorImage}
+              />
+              <Text style={styles.authorName}>
+                {item.authorName}
               </Text>
             </View>
-            <View style={styles.statItem}>
-              <Ionicons name="eye" size={12} color="#6b7280" />
-              <Text style={styles.statText}>
-                {item.views}
-              </Text>
+            
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Ionicons name="star" size={12} color="#fbbf24" />
+                <Text style={styles.statText}>
+                  {item.averageRating.toFixed(1)}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Ionicons name="eye" size={12} color="#6b7280" />
+                <Text style={styles.statText}>
+                  {item.views}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
   );
 
   if (loading && !refreshing) {
@@ -321,7 +335,21 @@ export default function LibraryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Library</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Library</Text>
+            {!isOnline && (
+              <View style={styles.offlineIndicator}>
+                <Ionicons name="cloud-offline-outline" size={16} color="#ef4444" />
+                <Text style={styles.offlineText}>Offline</Text>
+              </View>
+            )}
+            {isSyncing && (
+              <View style={styles.syncIndicator}>
+                <ActivityIndicator size="small" color="#9333ea" />
+                <Text style={styles.syncText}>Syncing...</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
               onPress={() => router.push('/library/bookmarks')}
@@ -372,7 +400,7 @@ export default function LibraryScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => loadContent(true)}
+            onRefresh={() => handleLoadContent(true)}
             colors={['#9333ea']}
           />
         }
@@ -440,10 +468,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    gap: 4,
+  },
+  offlineText: {
+    fontSize: 12,
+    color: '#dc2626',
+    fontWeight: '500',
+  },
+  syncIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3e8ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    gap: 4,
+  },
+  syncText: {
+    fontSize: 12,
+    color: '#7c3aed',
+    fontWeight: '500',
   },
   headerActions: {
     flexDirection: 'row',
@@ -546,22 +607,16 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  thumbnailContainer: {
-    position: 'relative',
-  },
   contentThumbnail: {
     width: '100%',
     height: 192,
   },
   thumbnailLoader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: '100%',
+    height: 192,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: '#f3f4f6',
   },
   contentBody: {
     padding: 16,

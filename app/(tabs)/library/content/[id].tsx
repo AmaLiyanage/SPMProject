@@ -23,6 +23,7 @@ import {
   getContentRatings 
 } from '../../../../services/libraryService';
 import { LibraryContent, ContentRating } from '../../../../types/library';
+import { ContentVideoPlayer } from '../../../../components/ContentVideoPlayer';
 
 const { width } = Dimensions.get('window');
 
@@ -202,18 +203,30 @@ export default function ContentDetailScreen() {
       </View>
 
       <ScrollView style={styles.scrollView}>
-        {/* Thumbnail */}
+        {/* Media Section - Video or Thumbnail */}
         {content.thumbnailUrl && (
-          <View style={styles.thumbnailContainer}>
-            <Image
-              source={{ uri: content.thumbnailUrl }}
-              style={[styles.thumbnail, { width, height: width * 0.56 }]}
-              resizeMode="cover"
-              onLoadStart={() => setImageLoading(true)}
-              onLoad={() => setImageLoading(false)}
-              onError={() => setImageLoading(false)}
-            />
-            {imageLoading && (
+          <View style={styles.mediaContainer}>
+            {content.type === 'video' && content.videoUrl ? (
+              <ContentVideoPlayer
+                uri={content.videoUrl}
+                thumbnailUri={content.thumbnailUrl}
+                title={content.title}
+                style={styles.mediaPlayer}
+                onPlaybackStatusUpdate={(status) => {
+                  console.log('Video status:', status);
+                }}
+              />
+            ) : (
+              <Image
+                source={{ uri: content.thumbnailUrl }}
+                style={[styles.thumbnail, { width, height: width * 0.56 }]}
+                resizeMode="cover"
+                onLoadStart={() => setImageLoading(true)}
+                onLoad={() => setImageLoading(false)}
+                onError={() => setImageLoading(false)}
+              />
+            )}
+            {imageLoading && content.type !== 'video' && (
               <View style={[styles.thumbnailLoader, { width, height: width * 0.56 }]}>
                 <ActivityIndicator size="large" color="#9333ea" />
               </View>
@@ -313,25 +326,11 @@ export default function ContentDetailScreen() {
             {content.description}
           </Text>
 
-          {/* Video Player or Article Content */}
-          {content.type === 'video' && content.videoUrl ? (
+          {/* Content */}
+          {content.content && (
             <View style={styles.contentSection}>
               <Text style={styles.sectionTitle}>
-                Video Content
-              </Text>
-              {/* Note: You'd integrate a proper video player here */}
-              <View style={styles.videoPlaceholder}>
-                <Ionicons name="play-circle" size={48} color="#9333ea" />
-                <Text style={styles.videoPlaceholderText}>Video Player Coming Soon</Text>
-                <Text style={styles.videoUrlText}>
-                  URL: {content.videoUrl}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.contentSection}>
-              <Text style={styles.sectionTitle}>
-                Article
+                {content.type === 'video' ? 'About this video' : 'Article'}
               </Text>
               <Text style={styles.articleContent}>
                 {content.content}
@@ -458,8 +457,11 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  thumbnailContainer: {
+  mediaContainer: {
     position: 'relative',
+  },
+  mediaPlayer: {
+    width: '100%',
   },
   thumbnail: {
     // Dynamic width and height are passed as style prop
@@ -588,21 +590,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
     color: '#111827',
-  },
-  videoPlaceholder: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  videoPlaceholderText: {
-    color: '#6b7280',
-    marginTop: 8,
-  },
-  videoUrlText: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
   },
   articleContent: {
     color: '#1f2937',

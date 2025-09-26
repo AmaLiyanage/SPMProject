@@ -15,15 +15,13 @@ import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../../../contexts/AuthContext';
 import { 
-  getLibraryContent, 
-  searchLibraryContent,
-  bookmarkContent,
-  removeBookmark,
   isContentBookmarked 
 } from '../../../services/libraryService';
 import { LibraryContent, ContentCategory, ContentType, LibrarySearchFilters } from '../../../types/library';
 import { useOfflineLibrary } from '../../../hooks/useOfflineLibrary';
 import { OfflineImage } from '../../../components/OfflineImage';
+import { LibraryVideoPlayer } from '../../../components/LibraryVideoPlayer';
+import { useVisibleItems } from '../../../hooks/useVisibleItems';
 
 const CATEGORIES: { key: ContentCategory; label: string; icon: string }[] = [
   { key: 'leadership', label: 'Leadership', icon: 'star' },
@@ -44,7 +42,6 @@ export default function LibraryScreen() {
   const [selectedCategory, setSelectedCategory] = useState<ContentCategory | undefined>();
   const [selectedType, setSelectedType] = useState<ContentType | undefined>();
   const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
-  const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
   
   // Use offline-first library hook
   const {
@@ -52,8 +49,6 @@ export default function LibraryScreen() {
     isLoading: loading,
     isSyncing,
     isOnline,
-    lastSyncTime,
-    cacheStats,
     actions: {
       loadContent,
       searchContent,
@@ -64,6 +59,9 @@ export default function LibraryScreen() {
   } = useOfflineLibrary(userProfile?.uid);
 
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Video visibility tracking
+  const { isItemVisible, onViewableItemsChanged, viewabilityConfig } = useVisibleItems();
 
   const handleLoadContent = async (refresh = false) => {
     try {
@@ -106,9 +104,10 @@ export default function LibraryScreen() {
   useEffect(() => {
     const delayedSearch = setTimeout(async () => {
       if (searchQuery.trim()) {
-        const results = await searchContent(searchQuery);
-        // Handle search results if needed
-      } else if (!searchQuery && content.length === 0) {
+        // Perform search and the hook will update the content automatically
+        await searchContent(searchQuery);
+      } else if (!searchQuery) {
+        // Clear search - reload all content
         handleLoadContent();
       }
     }, 500);
@@ -243,20 +242,35 @@ export default function LibraryScreen() {
         onPress={() => router.push(`/library/content/${item.id}`)}
         style={styles.contentCard}
       >
+        {/* Thumbnail/Video Container */}
         {item.thumbnailUrl && (
-          <OfflineImage
-            uri={item.thumbnailUrl}
-            style={styles.contentThumbnail}
-            resizeMode="cover"
-            priority="medium"
-            fallbackIcon="image-outline"
-            placeholder={
-              <View style={styles.thumbnailLoader}>
-                <ActivityIndicator size="small" color="#9333ea" />
-              </View>
-            }
-          />
+          <View style={styles.thumbnailContainer}>
+            {item.type === 'video' && item.videoUrl ? (
+              <LibraryVideoPlayer
+                uri={item.videoUrl}
+                thumbnailUri={item.thumbnailUrl}
+                duration={item.duration}
+                isVisible={isItemVisible(item.id)}
+                onPress={() => router.push(`/library/content/${item.id}`)}
+                style={styles.videoPlayer}
+              />
+            ) : (
+              <OfflineImage
+                uri={item.thumbnailUrl}
+                style={styles.contentThumbnail}
+                resizeMode="cover"
+                priority="medium"
+                fallbackIcon="image-outline"
+                placeholder={
+                  <View style={styles.thumbnailLoader}>
+                    <ActivityIndicator size="small" color="#9333ea" />
+                  </View>
+                }
+              />
+            )}
+          </View>
         )}
+        
         <View style={styles.contentBody}>
           <View style={styles.contentHeader}>
             <View style={styles.contentTypeContainer}>
@@ -397,6 +411,8 @@ export default function LibraryScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderContentItem}
         contentContainerStyle={styles.listContainer}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -607,6 +623,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  thumbnailContainer: {
+    position: 'relative',
+  },
   contentThumbnail: {
     width: '100%',
     height: 192,
@@ -617,6 +636,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f3f4f6',
+  },
+  videoPlayer: {
+    width: '100%',
+    height: 192,
   },
   contentBody: {
     padding: 16,

@@ -7,8 +7,9 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*'],
   },
-  rules, 
   {
-    "react/no-unescaped-entities": "off"
+    rules: {
+      "react/no-unescaped-entities": "off"
+    }
   }
 ]);

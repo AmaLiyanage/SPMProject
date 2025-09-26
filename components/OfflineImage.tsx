@@ -39,7 +39,7 @@ export const OfflineImage: React.FC<OfflineImageProps> = ({
   const [showDownloadOption, setShowDownloadOption] = useState(false);
   const [isImageReady, setIsImageReady] = useState(false);
   const [hasStartedLoading, setHasStartedLoading] = useState(false);
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     loadImage();

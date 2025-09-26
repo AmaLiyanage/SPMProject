@@ -163,6 +163,7 @@ export const useOfflineLibrary = (userId?: string) => {
     forceOnline = false
   ): Promise<LibraryContent[]> => {
     try {
+      setState(prev => ({ ...prev, isLoading: true }));
       let results: LibraryContent[] = [];
 
       if (state.isOnline && forceOnline) {
@@ -183,6 +184,8 @@ export const useOfflineLibrary = (userId?: string) => {
           content.authorName.toLowerCase().includes(searchLower)
         );
 
+        console.log(`Search "${query}" found ${results.length} results in cache`);
+
         // If no results and we're online, try online search
         if (results.length === 0 && state.isOnline) {
           results = await searchLibraryContent(query);
@@ -190,9 +193,17 @@ export const useOfflineLibrary = (userId?: string) => {
         }
       }
 
+      // Update the content state with search results
+      setState(prev => ({ 
+        ...prev, 
+        content: results,
+        isLoading: false 
+      }));
+
       return results;
     } catch (error) {
       console.error('Failed to search content:', error);
+      setState(prev => ({ ...prev, isLoading: false }));
       return [];
     }
   }, [state.isOnline]);

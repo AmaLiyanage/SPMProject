@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { validateEmail, sanitizeInput, getFirebaseErrorMessage } from '../../utils/validation';
-import { validateUserType, getUserTypeErrorMessage } from '../../utils/auth';
+import { getUserTypeErrorMessage, validateUserType } from '../../utils/auth';
+import { getFirebaseErrorMessage, sanitizeInput, validateEmail } from '../../utils/validation';
 
 export default function MentorLoginScreen() {
   const [email, setEmail] = useState('');

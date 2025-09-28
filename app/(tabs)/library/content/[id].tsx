@@ -23,6 +23,7 @@ import {
   getContentRatings 
 } from '../../../../services/libraryService';
 import { LibraryContent, ContentRating } from '../../../../types/library';
+import { OfflineImage } from '../../../../components/OfflineImage';
 import { ContentVideoPlayer } from '../../../../components/ContentVideoPlayer';
 
 const { width } = Dimensions.get('window');
@@ -259,11 +260,13 @@ export default function ContentDetailScreen() {
 
           {/* Author Info */}
           <View style={styles.authorContainer}>
-            <Image
-              source={{ 
-                uri: content.authorProfilePicture || 'https://via.placeholder.com/40' 
-              }}
+            <OfflineImage
+              uri={content.authorProfilePicture}
               style={styles.authorImage}
+              resizeMode="cover"
+              priority="high"
+              hideLoadingIndicator={true}
+              fallbackSource={require('../../../../assets/images/default-mentor-avatar.png')}
             />
             <View style={styles.authorInfo}>
               <Text style={styles.authorName}>

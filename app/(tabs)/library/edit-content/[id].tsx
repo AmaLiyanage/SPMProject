@@ -46,6 +46,9 @@ export default function EditContentScreen() {
   const [category, setCategory] = useState<ContentCategory>('leadership');
   const [tags, setTags] = useState('');
   const [isPublished, setIsPublished] = useState(true);
+  const [thumbnailLoading, setThumbnailLoading] = useState(true);
+  const [updatingThumbnail, setUpdatingThumbnail] = useState(false);
+  const [newThumbnailUri, setNewThumbnailUri] = useState<string | null>(null);
 
   // Redirect if not a mentor
   if (userProfile?.userType !== 'mentor') {
@@ -108,6 +111,36 @@ export default function EditContentScreen() {
     return true;
   };
 
+  const handleSelectThumbnail = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Camera roll permissions are required to select a thumbnail.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setUpdatingThumbnail(true);
+        setThumbnailLoading(true);
+        setNewThumbnailUri(result.assets[0].uri);
+        setUpdatingThumbnail(false);
+      }
+    } catch (error) {
+      console.error('Error selecting thumbnail:', error);
+      Alert.alert('Error', 'Failed to select thumbnail. Please try again.');
+      setUpdatingThumbnail(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!validateForm() || !userProfile || !content) return;
 
@@ -118,17 +151,24 @@ export default function EditContentScreen() {
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0);
 
+      const updateData: any = {
+        title: title.trim(),
+        description: description.trim(),
+        content: contentText.trim(),
+        category,
+        tags: tagsArray,
+        isPublished,
+      };
+
+      // Include thumbnail update if a new one was selected
+      if (newThumbnailUri) {
+        updateData.thumbnailUri = newThumbnailUri;
+      }
+
       await updateLibraryContent(
         content.id,
         userProfile.uid,
-        {
-          title: title.trim(),
-          description: description.trim(),
-          content: contentText.trim(),
-          category,
-          tags: tagsArray,
-          isPublished,
-        }
+        updateData
       );
 
       Alert.alert(
@@ -202,21 +242,42 @@ export default function EditContentScreen() {
 
       <ScrollView style={styles.scrollView}>
         {/* Current Thumbnail */}
-        {content.thumbnailUrl && (
-          <View style={styles.section}>
-            <Text style={styles.label}>
-              Current Thumbnail
-            </Text>
+        <View style={styles.section}>
+          <Text style={styles.label}>
+            Thumbnail
+          </Text>
+          <View style={styles.thumbnailContainer}>
+            {thumbnailLoading && (
+              <View style={styles.thumbnailPlaceholder}>
+                <ActivityIndicator size="small" color="#9333ea" />
+                <Text style={styles.loadingText}>Loading thumbnail...</Text>
+              </View>
+            )}
             <Image
-              source={{ uri: content.thumbnailUrl }}
-              style={styles.thumbnailImage}
+              source={{ uri: newThumbnailUri || content.thumbnailUrl }}
+              style={[styles.thumbnailImage, thumbnailLoading && styles.hiddenImage]}
               resizeMode="cover"
+              onLoad={() => setThumbnailLoading(false)}
+              onError={() => setThumbnailLoading(false)}
             />
-            <Text style={styles.helperText}>
-              Note: Thumbnail editing will be available in a future update
-            </Text>
+            {!thumbnailLoading && (
+              <TouchableOpacity
+                style={styles.editThumbnailButton}
+                onPress={handleSelectThumbnail}
+                disabled={updatingThumbnail}
+              >
+                {updatingThumbnail ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="camera" size={16} color="white" />
+                    <Text style={styles.editThumbnailText}>Change</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+        </View>
 
         {/* Publish Status */}
         <View style={styles.section}>
@@ -485,10 +546,46 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 8,
   },
+  thumbnailContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 128,
+  },
   thumbnailImage: {
     width: '100%',
     height: 128,
     borderRadius: 8,
+  },
+  hiddenImage: {
+    opacity: 0,
+  },
+  thumbnailPlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editThumbnailButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  editThumbnailText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
   },
   helperText: {
     fontSize: 12,

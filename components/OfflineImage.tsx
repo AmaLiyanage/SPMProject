@@ -12,11 +12,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { offlineCacheService } from '../services/offlineCacheService';
 
 interface OfflineImageProps extends Omit<ImageProps, 'source'> {
-  uri: string;
+  uri?: string | null;
   placeholder?: React.ReactNode;
   showDownloadButton?: boolean;
   priority?: 'high' | 'medium' | 'low';
   fallbackIcon?: keyof typeof Ionicons.glyphMap;
+  fallbackSource?: any; // For require() images
+  hideLoadingIndicator?: boolean; // Hide loading indicator for small images like profiles
   onCacheComplete?: (localPath: string) => void;
   onCacheError?: (error: Error) => void;
 }
@@ -28,6 +30,8 @@ export const OfflineImage: React.FC<OfflineImageProps> = ({
   showDownloadButton = false,
   priority = 'medium',
   fallbackIcon = 'image-outline',
+  fallbackSource,
+  hideLoadingIndicator = false,
   onCacheComplete,
   onCacheError,
   ...imageProps
@@ -54,6 +58,15 @@ export const OfflineImage: React.FC<OfflineImageProps> = ({
 
   const loadImage = async () => {
     if (!uri) {
+      // If no URI but we have a fallback source, use it immediately
+      if (fallbackSource) {
+        setImageSource('fallback');
+        setIsLoading(false);
+        setHasError(false);
+        setIsImageReady(true);
+        return;
+      }
+      
       setIsLoading(false);
       setHasError(true);
       setIsImageReady(false);
@@ -150,6 +163,15 @@ export const OfflineImage: React.FC<OfflineImageProps> = ({
       return; // Don't set error state yet, give network image a chance
     }
     
+    // If network image failed and we have a fallback source, use it
+    if (uri && fallbackSource && imageSource !== 'fallback') {
+      setImageSource('fallback');
+      setIsLoading(false);
+      setHasError(false);
+      setIsImageReady(true);
+      return;
+    }
+    
     setHasError(true);
     setIsLoading(false);
     setIsImageReady(false);
@@ -215,7 +237,7 @@ export const OfflineImage: React.FC<OfflineImageProps> = ({
   }
 
   // Determine what components to render
-  const showLoadingPlaceholder = (isLoading && !isImageReady);
+  const showLoadingPlaceholder = (isLoading && !isImageReady && !hideLoadingIndicator);
   const showImage = !!imageSource;
   const showErrorState = hasError && !imageSource;
 
@@ -234,7 +256,7 @@ export const OfflineImage: React.FC<OfflineImageProps> = ({
         <>
           <Image
             {...imageProps}
-            source={{ uri: imageSource }}
+            source={imageSource === 'fallback' ? fallbackSource : { uri: imageSource }}
             style={[
               style,
               // Hide image while loading but keep it in DOM for onLoad events

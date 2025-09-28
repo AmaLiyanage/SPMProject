@@ -10,6 +10,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { OfflineImage } from '../../../components/OfflineImage';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -80,21 +81,18 @@ export default function BookmarksScreen() {
       style={styles.bookmarkCard}
     >
       <View style={styles.cardContent}>
-        {item.thumbnailUrl ? (
-          <Image
-            source={{ uri: item.thumbnailUrl }}
-            style={styles.thumbnail}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.thumbnailPlaceholder}>
-            <Ionicons
-              name={item.type === 'video' ? 'play-circle' : 'document-text'}
-              size={32}
-              color="#9ca3af"
-            />
-          </View>
-        )}
+        <OfflineImage
+          uri={item.thumbnailUrl}
+          style={styles.thumbnail}
+          resizeMode="cover"
+          priority="medium"
+          fallbackIcon={item.type === 'video' ? 'play-circle' : 'document-text'}
+          placeholder={
+            <View style={styles.thumbnailPlaceholder}>
+              <ActivityIndicator size="small" color="#9333ea" />
+            </View>
+          }
+        />
         
         <View style={styles.contentInfo}>
           <View style={styles.contentHeader}>
@@ -126,14 +124,24 @@ export default function BookmarksScreen() {
           
           <View style={styles.footer}>
             <View style={styles.authorInfo}>
-              <Image
-                source={{ 
-                  uri: item.authorProfilePicture || 'https://via.placeholder.com/24' 
-                }}
+              <OfflineImage
+                uri={item.authorProfilePicture}
                 style={styles.authorImage}
+                resizeMode="cover"
+                priority="high"
+                hideLoadingIndicator={true}
+                fallbackSource={require('../../../assets/images/default-mentor-avatar.png')}
               />
               <Text style={styles.authorName}>
                 {item.authorName}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.statsAndCategory}>
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryText}>
+                {item.category.replace('-', ' ')}
               </Text>
             </View>
             
@@ -152,15 +160,6 @@ export default function BookmarksScreen() {
               </View>
             </View>
           </View>
-        </View>
-      </View>
-      
-      {/* Category Tag */}
-      <View style={styles.categoryContainer}>
-        <View style={styles.categoryTag}>
-          <Text style={styles.categoryText}>
-            {item.category.replace('-', ' ')}
-          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -376,10 +375,12 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: 96,
     height: 96,
+    marginTop: 18,
   },
   thumbnailPlaceholder: {
     width: 96,
     height: 96,
+    marginTop: 18,
     backgroundColor: '#f3f4f6',
     justifyContent: 'center',
     alignItems: 'center',
@@ -420,9 +421,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   authorInfo: {
     flexDirection: 'row',
@@ -438,6 +437,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
   },
+  statsAndCategory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+  },
   stats: {
     flexDirection: 'row',
     gap: 12,
@@ -451,16 +456,11 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginLeft: 4,
   },
-  categoryContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
   categoryTag: {
     backgroundColor: '#f3e8ff',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
   categoryText: {
     fontSize: 12,

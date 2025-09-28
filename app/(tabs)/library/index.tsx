@@ -305,11 +305,13 @@ export default function LibraryScreen() {
           
           <View style={styles.contentFooter}>
             <View style={styles.authorContainer}>
-              <Image
-                source={{ 
-                  uri: item.authorProfilePicture || 'https://via.placeholder.com/32' 
-                }}
+              <OfflineImage
+                uri={item.authorProfilePicture}
                 style={styles.authorImage}
+                resizeMode="cover"
+                priority="high"
+                hideLoadingIndicator={true}
+                fallbackSource={require('../../../assets/images/default-mentor-avatar.png')}
               />
               <Text style={styles.authorName}>
                 {item.authorName}

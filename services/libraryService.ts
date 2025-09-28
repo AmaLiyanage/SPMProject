@@ -125,7 +125,9 @@ export async function createLibraryContent(
 export async function updateLibraryContent(
   contentId: string,
   mentorId: string,
-  updates: Partial<Pick<LibraryContent, 'title' | 'description' | 'content' | 'category' | 'tags' | 'isPublished'>>
+  updates: Partial<Pick<LibraryContent, 'title' | 'description' | 'content' | 'category' | 'tags' | 'isPublished'>> & {
+    thumbnailUri?: string;
+  }
 ): Promise<void> {
   try {
     // Verify ownership
@@ -139,10 +141,44 @@ export async function updateLibraryContent(
       throw new Error('Permission denied: You can only edit your own content');
     }
 
-    await updateDoc(doc(db, 'libraryContent', contentId), {
+    const updateData: any = {
       ...updates,
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    // Handle thumbnail upload if provided
+    if (updates.thumbnailUri) {
+      try {
+        // Convert URI to blob for upload
+        const response = await fetch(updates.thumbnailUri);
+        const blob = await response.blob();
+        
+        // Upload new thumbnail
+        const thumbnailRef = ref(storage, `library/thumbnails/${contentId}_${Date.now()}_thumbnail`);
+        const thumbnailSnapshot = await uploadBytes(thumbnailRef, blob);
+        const thumbnailUrl = await getDownloadURL(thumbnailSnapshot.ref);
+        
+        updateData.thumbnailUrl = thumbnailUrl;
+        
+        // Delete old thumbnail if it exists
+        if (content.thumbnailUrl) {
+          try {
+            const oldThumbnailRef = ref(storage, content.thumbnailUrl);
+            await deleteObject(oldThumbnailRef);
+          } catch (e) {
+            console.warn('Failed to delete old thumbnail:', e);
+          }
+        }
+      } catch (error) {
+        console.error('Error uploading thumbnail:', error);
+        throw new Error('Failed to upload thumbnail');
+      }
+      
+      // Remove thumbnailUri from updates as it's not a database field
+      delete updateData.thumbnailUri;
+    }
+
+    await updateDoc(doc(db, 'libraryContent', contentId), updateData);
   } catch (error) {
     console.error('Error updating library content:', error);
     throw error;

@@ -10,6 +10,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
+import { OfflineImage } from '../../../components/OfflineImage';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -78,11 +79,18 @@ export default function MyContentScreen() {
   const renderContentItem = ({ item }: { item: LibraryContent }) => (
     <View style={styles.contentCard}>
       <View style={styles.cardContent}>
-        {item.thumbnailUrl ? (
-          <Image
-            source={{ uri: item.thumbnailUrl }}
+{item.thumbnailUrl ? (
+          <OfflineImage
+            uri={item.thumbnailUrl}
             style={styles.thumbnail}
             resizeMode="cover"
+            priority="medium"
+            fallbackIcon={item.type === 'video' ? 'play-circle' : 'document-text'}
+            placeholder={
+              <View style={styles.thumbnailPlaceholder}>
+                <ActivityIndicator size="small" color="#9333ea" />
+              </View>
+            }
           />
         ) : (
           <View style={styles.thumbnailPlaceholder}>

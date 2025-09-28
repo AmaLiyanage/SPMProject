@@ -9,7 +9,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -37,11 +36,6 @@ const CreatePost = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState<string>("");
-  
-  // Voice-to-text states
-  const [isListening, setIsListening] = useState(false);
-  const [voiceRecording, setVoiceRecording] = useState<Audio.Recording | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const videoRef = useRef<Video>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -52,126 +46,8 @@ const CreatePost = () => {
     return () => {
       if (sound) sound.unloadAsync();
       if (recording) recording.stopAndUnloadAsync();
-      if (voiceRecording) voiceRecording.stopAndUnloadAsync();
     };
   }, [userId]);
-
-  // Pulse animation for voice listening indicator
-  useEffect(() => {
-    if (isListening) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isListening]);
-
-  // -------- VOICE TO TEXT FUNCTIONS --------
-  const startVoiceToText = async () => {
-    try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
-        return Alert.alert("Permission Required", "Please allow microphone access to use voice input.");
-      }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const newRecording = new Audio.Recording();
-      await newRecording.prepareToRecordAsync({
-        android: {
-          extension: ".m4a",
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: ".m4a",
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        web: { mimeType: "audio/webm", bitsPerSecond: 128000 },
-      });
-
-      setVoiceRecording(newRecording);
-      setIsListening(true);
-      await newRecording.startAsync();
-
-      // Note: In a production app, you would send this audio to a speech-to-text API
-      // For demonstration, we're simulating the transcription
-      Alert.alert(
-        "Voice Input Active", 
-        "Speak now. Tap the microphone again when finished.",
-        [{ text: "OK" }]
-      );
-    } catch (error: any) {
-      console.log("Voice recording failed:", error);
-      Alert.alert("Voice Input Failed", "Unable to start voice recording. Please try again.");
-      setIsListening(false);
-    }
-  };
-
-  const stopVoiceToText = async () => {
-    if (!voiceRecording) return;
-
-    try {
-      await voiceRecording.stopAndUnloadAsync();
-      const uri = voiceRecording.getURI();
-      
-      // In a production app, you would:
-      // 1. Send the audio file to a speech-to-text service (Google Speech-to-Text, AWS Transcribe, etc.)
-      // 2. Receive the transcribed text
-      // 3. Append it to the existing text content
-      
-      // For demonstration, we'll simulate with a placeholder
-      // You would replace this with actual API integration
-      const simulatedTranscription = "This is where your spoken words would appear after being processed by a speech-to-text service. ";
-      
-      setTextContent(prevText => prevText + (prevText ? " " : "") + simulatedTranscription);
-      
-      Alert.alert(
-        "Voice Input Complete", 
-        "Note: This is a demonstration. In production, integrate with a speech-to-text API like Google Cloud Speech-to-Text or AWS Transcribe.",
-        [{ text: "OK" }]
-      );
-      
-      setVoiceRecording(null);
-      setIsListening(false);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-    } catch (error: any) {
-      console.log("Stop voice recording error:", error);
-      Alert.alert("Error", "Failed to process voice input. Please try again.");
-      setVoiceRecording(null);
-      setIsListening(false);
-    }
-  };
-
-  const toggleVoiceToText = () => {
-    if (isListening) {
-      stopVoiceToText();
-    } else {
-      startVoiceToText();
-    }
-  };
 
   // -------- PICK IMAGE/VIDEO --------
   const pickMedia = async () => {
@@ -386,40 +262,17 @@ const CreatePost = () => {
           <TextInput style={styles.input} placeholder="Story title..." value={title} onChangeText={setTitle} />
         </View>
 
-        {/* Text Content with Voice Input */}
+        {/* Text Content */}
         <View style={styles.card}>
-          <View style={styles.storyLabelContainer}>
-            <Text style={styles.label}>Story</Text>
-            <TouchableOpacity 
-              style={[styles.voiceButton, isListening && styles.voiceButtonActive]} 
-              onPress={toggleVoiceToText}
-              disabled={isUploading}
-            >
-              <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                <FontAwesome 
-                  name="microphone" 
-                  size={20} 
-                  color={isListening ? "#FF3B30" : "#8B5CF6"} 
-                />
-              </Animated.View>
-              {isListening && <Text style={styles.voiceButtonText}>Listening...</Text>}
-              {!isListening && <Text style={styles.voiceButtonText}>Voice</Text>}
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.label}>Story</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Share your story... (Tap the mic to use voice)"
+            placeholder="Share your story..."
             value={textContent}
             onChangeText={setTextContent}
             multiline
             numberOfLines={5}
           />
-          {isListening && (
-            <View style={styles.listeningIndicator}>
-              <View style={styles.listeningDot} />
-              <Text style={styles.listeningText}>Voice input active - Tap microphone to stop</Text>
-            </View>
-          )}
         </View>
 
         {/* Media Buttons */}
@@ -512,53 +365,6 @@ const styles = StyleSheet.create({
   label: { fontWeight: "600", marginBottom: 8, color: "#333", fontSize: 16 },
   input: { borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: "#FAFAFA" },
   textArea: { height: 120, textAlignVertical: "top" },
-  
-  // Voice Input Styles
-  storyLabelContainer: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-    marginBottom: 8 
-  },
-  voiceButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "#F3E8FF",
-    borderWidth: 1,
-    borderColor: "#E9D5FF",
-  },
-  voiceButtonActive: {
-    backgroundColor: "#FFEEED",
-    borderColor: "#FFCCCB",
-  },
-  voiceButtonText: {
-    marginLeft: 6,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#8B5CF6",
-  },
-  listeningIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-    paddingHorizontal: 8,
-  },
-  listeningDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#FF3B30",
-    marginRight: 8,
-  },
-  listeningText: {
-    fontSize: 12,
-    color: "#FF3B30",
-    fontStyle: "italic",
-  },
-  
   mediaButtonsContainer: { flexDirection: "row", justifyContent: "space-between" },
   mediaButton: { flexDirection: "row", alignItems: "center", padding: 12, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 8, backgroundColor: "#FAFAFA", flex: 1, marginHorizontal: 4, justifyContent: "center" },
   mediaButtonText: { marginLeft: 8, color: "#007AFF", fontWeight: "500" },

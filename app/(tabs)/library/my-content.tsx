@@ -23,16 +23,16 @@ export default function MyContentScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Redirect if not a mentor
-  if (userProfile?.userType !== 'mentor') {
-    router.replace('/library');
-    return null;
-  }
 
   const loadContent = async (refresh = false) => {
     try {
       if (refresh) setRefreshing(true);
       else setLoading(true);
+
+      if (!userProfile) {
+        setContent([]);
+        return;
+      }
 
       const mentorContent = await getMentorContent(userProfile.uid);
       setContent(mentorContent);
@@ -48,6 +48,12 @@ export default function MyContentScreen() {
   useEffect(() => {
     loadContent();
   }, []);
+
+  // Redirect if not a mentor
+  if (userProfile?.userType !== 'mentor') {
+    router.replace('/library');
+    return null;
+  }
 
   const handleDelete = (contentId: string, title: string) => {
     Alert.alert(

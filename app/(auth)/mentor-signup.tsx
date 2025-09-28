@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Alert, 
-  ScrollView, 
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { validateEmail, validatePassword, sanitizeInput, getFirebaseErrorMessage } from '../../utils/validation';
 import { getAutoTimeZone } from '../../utils/timeZone';
+import { getFirebaseErrorMessage, sanitizeInput, validateEmail, validatePassword } from '../../utils/validation';
 
 export default function MentorSignupScreen() {
   const [formData, setFormData] = useState({

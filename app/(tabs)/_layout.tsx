@@ -1,7 +1,7 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { HapticTab } from '../../components/HapticTab';
 import TabBarBackground from '../../components/ui/TabBarBackground';
@@ -19,12 +19,11 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
+          ios: { position: 'absolute' },
           default: {},
         }),
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
@@ -58,6 +57,19 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? 'people' : 'people-outline'} 
+              size={24} 
+              color={color} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="journal"
+        options={{
+          title: 'Journal',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? 'create' : 'create-outline'} 
               size={24} 
               color={color} 
             />

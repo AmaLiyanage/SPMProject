@@ -40,8 +40,8 @@ export const ContentVideoPlayer: React.FC<ContentVideoPlayerProps> = ({
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   
   // Auto-hide controls timeout
-  const hideControlsTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const hideControlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Create video player instance only when needed
   const player = useVideoPlayer(showVideo ? uri : null, (player) => {

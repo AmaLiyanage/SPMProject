@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Share,
   StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -73,6 +74,7 @@ export default function LibraryScreen() {
         sortBy: 'newest',
       };
 
+      // Force online fetch when refreshing to get latest data (bypassing cache)
       await loadContent(filters, refresh);
 
       // Load bookmark status for current user
@@ -144,6 +146,17 @@ export default function LibraryScreen() {
     } catch (error) {
       console.error('Error toggling bookmark:', error);
       Alert.alert('Error', 'Failed to update bookmark. Please try again.');
+    }
+  };
+
+  const handleShare = async (item: LibraryContent) => {
+    try {
+      await Share.share({
+        message: `Check out this ${item.type}: "${item.title}" by ${item.authorName} on HerPower!\n\nDescription: ${item.description}`,
+        url: `herpower://library/content/${item.id}`,
+      });
+    } catch (error) {
+      console.error('Error sharing content:', error);
     }
   };
 

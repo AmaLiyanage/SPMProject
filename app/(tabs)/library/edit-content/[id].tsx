@@ -50,17 +50,17 @@ export default function EditContentScreen() {
   const [updatingThumbnail, setUpdatingThumbnail] = useState(false);
   const [newThumbnailUri, setNewThumbnailUri] = useState<string | null>(null);
 
-  // Redirect if not a mentor
-  if (userProfile?.userType !== 'mentor') {
-    router.replace('/library');
-    return null;
-  }
-
   useEffect(() => {
     if (id) {
       loadContent();
     }
   }, [id]);
+
+  // Redirect if not a mentor
+  if (userProfile?.userType !== 'mentor') {
+    router.replace('/library');
+    return null;
+  }
 
   const loadContent = async () => {
     try {

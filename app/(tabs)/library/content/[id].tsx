@@ -9,6 +9,7 @@ import {
   Alert,
   Share,
   Dimensions,
+  TextInput,
   StyleSheet,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -37,6 +38,8 @@ export default function ContentDetailScreen() {
   const [userRating, setUserRating] = useState(0);
   const [ratings, setRatings] = useState<ContentRating[]>([]);
   const [showRatings, setShowRatings] = useState(false);
+  const [reviewText, setReviewText] = useState('');
+  const [showReviewInput, setShowReviewInput] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
 
   useEffect(() => {
@@ -104,9 +107,26 @@ export default function ContentDetailScreen() {
     if (!content) return;
 
     try {
+      // Create rich text content for sharing
+      const shareContent = `📚 ${content.title}
+      
+👤 By: ${content.authorName}
+🏷️ Category: ${content.category.replace('-', ' ')}
+⭐ Rating: ${content.averageRating.toFixed(1)} (${content.totalRatings} reviews)
+
+📖 Description:
+${content.description}
+
+${content.type === 'article' ? '📄 Article Content:' : '🎥 Video Description:'}
+${content.content}
+
+---
+Shared from HerPower - Empowering Women Leaders
+#WomenInLeadership #HerPower #${content.category.replace('-', '')}`;
+
       await Share.share({
-        message: `Check out this ${content.type}: "${content.title}" by ${content.authorName} on HerPower`,
-        url: `herpower://library/content/${content.id}`, // Deep link
+        message: shareContent,
+        title: `${content.title} - HerPower`,
       });
     } catch (error) {
       console.error('Error sharing content:', error);
@@ -119,9 +139,17 @@ export default function ContentDetailScreen() {
       return;
     }
 
+    // If rating is selected, show review input
+    if (rating > 0 && !showReviewInput) {
+      setShowReviewInput(true);
+      return;
+    }
+
     try {
-      await rateContent(userProfile.uid, content.id, rating);
+      await rateContent(userProfile.uid, content.id, rating, reviewText.trim() || undefined);
       setUserRating(rating);
+      setShowReviewInput(false);
+      setReviewText('');
       
       // Refresh content to get updated rating
       await loadContent();
@@ -129,6 +157,14 @@ export default function ContentDetailScreen() {
       console.error('Error rating content:', error);
       Alert.alert('Error', 'Failed to submit rating. Please try again.');
     }
+  };
+
+  const handleSubmitReview = async () => {
+    if (userRating === 0) {
+      Alert.alert('Rating Required', 'Please select a star rating first.');
+      return;
+    }
+    await handleRate(userRating);
   };
 
   const renderStarRating = (rating: number, onPress?: (rating: number) => void) => (
@@ -348,7 +384,46 @@ export default function ContentDetailScreen() {
                 Rate this {content.type}
               </Text>
               {renderStarRating(userRating, handleRate)}
-              {userRating > 0 && (
+              
+              {/* Review Input */}
+              {showReviewInput && (
+                <View style={styles.reviewInputSection}>
+                  <Text style={styles.reviewInputLabel}>
+                    Add a review (optional)
+                  </Text>
+                  <TextInput
+                    value={reviewText}
+                    onChangeText={setReviewText}
+                    placeholder="Share your thoughts about this content..."
+                    multiline
+                    numberOfLines={3}
+                    style={styles.reviewInput}
+                    maxLength={500}
+                  />
+                  <Text style={styles.characterCount}>
+                    {reviewText.length}/500 characters
+                  </Text>
+                  <View style={styles.reviewButtons}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowReviewInput(false);
+                        setReviewText('');
+                      }}
+                      style={styles.cancelButton}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleSubmitReview}
+                      style={styles.submitButton}
+                    >
+                      <Text style={styles.submitButtonText}>Submit Review</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+              
+              {userRating > 0 && !showReviewInput && (
                 <Text style={styles.ratingSuccessText}>
                   Thank you for your rating!
                 </Text>
@@ -615,6 +690,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#10b981',
     marginTop: 8,
+  },
+  reviewInputSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  reviewInputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  reviewInput: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+    minHeight: 80,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'right',
+    marginTop: 4,
+  },
+  reviewButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 12,
+  },
+  cancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: 'white',
+  },
+  cancelButtonText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  submitButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#9333ea',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
   },
   ownContentSection: {
     marginBottom: 24,

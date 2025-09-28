@@ -65,8 +65,29 @@ export const useOfflineLibrary = (userId?: string) => {
 
       // Auto-sync when coming back online
       if (wasOffline && isNowOnline && userId) {
+        console.log('📱 Back online - syncing content silently...');
         syncOfflineActions();
-        prefetchContent(); // Prefetch latest content
+        
+        // Silently refresh main content to show latest data (including deletions)
+        setTimeout(async () => {
+          try {
+            const response = await getLibraryContent({}, 50);
+            if (response.content.length > 0) {
+              await offlineCacheService.cacheContent(response.content, 'medium');
+              // Update content state silently without loading indicators
+              setState(prev => ({ 
+                ...prev, 
+                content: response.content,
+                lastSyncTime: Date.now(),
+              }));
+              console.log('✅ Content silently refreshed after coming online');
+            }
+          } catch (error) {
+            console.log('❌ Silent refresh failed after coming online');
+          }
+        }, 1000); // Small delay to ensure connection is stable
+        
+        prefetchContent(); // Prefetch additional content for cache
       }
     });
 
@@ -163,7 +184,7 @@ export const useOfflineLibrary = (userId?: string) => {
     forceOnline = false
   ): Promise<LibraryContent[]> => {
     try {
-      setState(prev => ({ ...prev, isLoading: true }));
+      // Don't set loading for searches to prevent page reload and keyboard dismissal
       let results: LibraryContent[] = [];
 
       if (state.isOnline && forceOnline) {
@@ -193,17 +214,15 @@ export const useOfflineLibrary = (userId?: string) => {
         }
       }
 
-      // Update the content state with search results
+      // Update the content state with search results (without loading states)
       setState(prev => ({ 
         ...prev, 
-        content: results,
-        isLoading: false 
+        content: results
       }));
 
       return results;
     } catch (error) {
       console.error('Failed to search content:', error);
-      setState(prev => ({ ...prev, isLoading: false }));
       return [];
     }
   }, [state.isOnline]);

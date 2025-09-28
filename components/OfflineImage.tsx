@@ -325,8 +325,11 @@ export const ProgressiveImage: React.FC<OfflineImageProps & {
     }
 
     // Load high-res image
-    const cachedHighRes = await offlineCacheService.getCachedImagePath(uri);
-    setHighResSource(cachedHighRes ? `file://${cachedHighRes}` : uri);
+    if (uri) {
+      const cachedHighRes = await offlineCacheService.getCachedImagePath(uri);
+      setHighResSource(cachedHighRes ? `file://${cachedHighRes}` : (uri));
+    }
+    
   };
 
   return (

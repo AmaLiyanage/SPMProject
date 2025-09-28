@@ -23,16 +23,15 @@ export default function BookmarksScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Redirect if not logged in
-  if (!userProfile) {
-    router.replace('/library');
-    return null;
-  }
-
   const loadBookmarks = async (refresh = false) => {
     try {
       if (refresh) setRefreshing(true);
       else setLoading(true);
+
+      if (!userProfile) {
+        setBookmarks([]);
+        return;
+      }
 
       const userBookmarks = await getUserBookmarks(userProfile.uid);
       setBookmarks(userBookmarks);
@@ -48,6 +47,12 @@ export default function BookmarksScreen() {
   useEffect(() => {
     loadBookmarks();
   }, []);
+
+  // Redirect if not logged in
+  if (!userProfile) {
+    router.replace('/library');
+    return null;
+  }
 
   const handleRemoveBookmark = (contentId: string, title: string) => {
     Alert.alert(

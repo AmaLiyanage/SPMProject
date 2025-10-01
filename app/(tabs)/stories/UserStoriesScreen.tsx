@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "center", padding: 16, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: "#EEE", backgroundColor: "white" },
   topAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
   screenTitle: { fontSize: 20, fontWeight: "bold", color: "#8B5CF6" },
-  card: { backgroundColor: "#d6c9f3ff", borderRadius: 12, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 3, overflow: "hidden" },
+  card: { backgroundColor: "#ffffffff", borderRadius: 12, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 3, overflow: "hidden" },
   cardHeader: { flexDirection: "row", alignItems: "center", padding: 12, borderBottomWidth: 1, borderBottomColor: "#EEE" },
   avatarCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#8B5CF6", justifyContent: "center", alignItems: "center", marginRight: 10 },
   avatarImage: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },

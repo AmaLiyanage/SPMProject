@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
+import { File, Directory, Paths } from 'expo-file-system/next';
 import { LibraryContent, ContentCategory, ContentType } from '../types/library';
 
 /**
@@ -271,13 +272,16 @@ class OfflineCacheService {
       const existing = this.imageCache.get(imageUrl);
       if (existing) {
         // Check if file still exists
-        const fileInfo = await FileSystem.getInfoAsync(existing.localPath);
-        if (fileInfo.exists) {
-          // Update last accessed
-          existing.lastAccessed = Date.now();
-          await this.saveImageCacheIndex();
-          return existing.localPath;
-        } else {
+        try {
+          const file = new File(existing.localPath);
+          const fileInfo = await file.info();
+          if (fileInfo.exists) {
+            // Update last accessed
+            existing.lastAccessed = Date.now();
+            await this.saveImageCacheIndex();
+            return existing.localPath;
+          }
+        } catch {
           // Remove from cache if file doesn't exist
           this.imageCache.delete(imageUrl);
         }
@@ -314,27 +318,33 @@ class OfflineCacheService {
     try {
       // Generate local file path
       const filename = this.generateImageFilename(imageUrl);
-      const localPath = `${FileSystem.documentDirectory}library_cache/${filename}`;
-
+      
+      // Create cache directory and file references
+      const cacheDirectory = new Directory(Paths.document, 'library_cache');
+      const localFile = new File(cacheDirectory, filename);
+      
       // Ensure cache directory exists
-      const cacheDir = `${FileSystem.documentDirectory}library_cache/`;
       try {
-        const dirInfo = await FileSystem.getInfoAsync(cacheDir);
+        const dirInfo = await cacheDirectory.info();
         if (!dirInfo.exists) {
-          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
+          await cacheDirectory.create({ intermediates: true });
         }
       } catch (dirError) {
         console.error('Failed to create cache directory:', dirError);
         return null;
       }
 
-      // Download image
-      const downloadResult = await FileSystem.downloadAsync(imageUrl, localPath);
+      // Download image to the cache directory (let it determine filename from headers)
+      // or download to specific file with idempotent option
+      const downloadedFile = await File.downloadFileAsync(imageUrl, localFile, {
+        idempotent: true
+      });
       
-      if (downloadResult.status === 200) {
-        // Get file size
-        const fileInfo = await FileSystem.getInfoAsync(localPath);
+      if (downloadedFile) {
+        // Get file size and info
+        const fileInfo = await downloadedFile.info();
         const size = fileInfo.exists ? fileInfo.size || 0 : 0;
+        const localPath = downloadedFile.uri;
 
         // Create cache item
         const cacheItem: ImageCacheItem = {
@@ -373,22 +383,31 @@ class OfflineCacheService {
       }
 
       // Check if file still exists and has valid size
-      const fileInfo = await FileSystem.getInfoAsync(cacheItem.localPath);
-      if (!fileInfo.exists) {
-        // Remove from cache if file doesn't exist
-        this.imageCache.delete(imageUrl);
-        await this.saveImageCacheIndex();
-        return null;
-      }
-
-      // Check if file has valid size (not empty or corrupted)
-      if (fileInfo.size === 0) {
-        // Remove corrupted file
-        try {
-          await FileSystem.deleteAsync(cacheItem.localPath);
-        } catch (e) {
-          // Ignore delete errors
+      try {
+        const file = new File(cacheItem.localPath);
+        const fileInfo = await file.info();
+        
+        if (!fileInfo.exists) {
+          // Remove from cache if file doesn't exist
+          this.imageCache.delete(imageUrl);
+          await this.saveImageCacheIndex();
+          return null;
         }
+
+        // Check if file has valid size (not empty or corrupted)
+        if (fileInfo.size === 0) {
+          // Remove corrupted file
+          try {
+            await file.delete();
+          } catch (e) {
+            // Ignore delete errors
+          }
+          this.imageCache.delete(imageUrl);
+          await this.saveImageCacheIndex();
+          return null;
+        }
+      } catch {
+        // Remove from cache if file doesn't exist
         this.imageCache.delete(imageUrl);
         await this.saveImageCacheIndex();
         return null;
@@ -660,10 +679,11 @@ class OfflineCacheService {
       ]);
 
       // Delete cache directory
-      const cacheDir = `${FileSystem.documentDirectory}library_cache/`;
-      const dirInfo = await FileSystem.getInfoAsync(cacheDir);
-      if (dirInfo.exists) {
-        await FileSystem.deleteAsync(cacheDir);
+      try {
+        const cacheDirectory = new Directory(Paths.document, 'library_cache');
+        await cacheDirectory.delete();
+      } catch {
+        // Directory might not exist, ignore error
       }
 
       console.log('Cleared all cache');

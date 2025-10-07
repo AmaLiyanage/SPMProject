@@ -11,6 +11,7 @@ import {
   Alert,
   Share,
   StyleSheet,
+  SafeAreaView,
 } from 'react-native';
 import { router } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -360,7 +361,7 @@ export default function LibraryScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
@@ -466,7 +467,7 @@ export default function LibraryScreen() {
           <Ionicons name="add" size={28} color="white" />
         </TouchableOpacity>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: 'white',
-    paddingTop: 48,
+    paddingTop: 32,
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,

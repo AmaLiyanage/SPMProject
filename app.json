@@ -4,7 +4,7 @@
     "slug": "HerPower",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/herPowerLogo2.png",
     "scheme": "herpower",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,15 +16,17 @@
       "supportsTablet": true
     },
     "android": {
+      "icon": "./assets/images/herPowerLogo2.png",
+      "roundIcon": "./assets/images/herPowerLogo2.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/herPowerLogo2.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.INTERNET"
       ],
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "package": "com.anonymous.HerPower"
     },
     "web": {
@@ -37,10 +39,11 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/herPowerLogo2.png",
+          "imageWidth": 250,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "hideAppNameInSplash": true
         }
       ],
       "expo-video",
@@ -48,6 +51,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "75c98a5b-29e6-49d3-aa53-16941ae583e4"
+      }
     }
   }
 }

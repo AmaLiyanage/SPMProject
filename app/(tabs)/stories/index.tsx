@@ -11,23 +11,13 @@ import {
   Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { db } from "../../../config/firebase";
-
-interface Story {
-  id: string;
-  userId: string;
-  title?: string;
-  type: "text" | "image" | "video" | "audio";
-  content: string;
-  text?: string;
-  createdAt: any;
-  displayName?: string;
-  profilePicture?: string;
-}
+import { setStories, Story } from "./storiesStore";
 
 // Cache to prevent multiple userDoc reads
 const userCache = new Map<string, { displayName: string; profilePicture: string }>();
@@ -36,7 +26,7 @@ export default function StoriesScreen() {
   const router = useRouter();
   const auth = getAuth();
 
-  const [stories, setStories] = useState<Story[]>([]);
+  const [stories, setLocalStories] = useState<Story[]>([]);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
@@ -46,16 +36,29 @@ export default function StoriesScreen() {
   const [profileImage, setProfileImage] = useState<string>("");
   const [cachedStories, setCachedStories] = useState<Story[]>([]);
 
+  // Search states
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<Story[] | null>(null);
+
   // ---------- HASHTAG PARSER ----------
   const renderTextWithHashtags = (text: string) => {
     const words = text.split(/(\s+)/); // keep spaces
     return words.map((word, index) => {
+      if (!word) return <Text key={index} />;
+
       if (word.startsWith("#")) {
         return (
           <Text
             key={index}
             style={{ color: "#007AFF" }}
-            onPress={() => Alert.alert("Hashtag tapped", word)}
+            onPress={() =>
+              router.push({
+                pathname: "/stories/HashtagScreen",
+                params: {
+                  tag: word.replace("#", ""),
+                },
+              })
+            }
           >
             {word}
           </Text>
@@ -65,6 +68,39 @@ export default function StoriesScreen() {
       }
     });
   };
+
+  // Update search results when query changes
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length === 0) {
+      setSearchResults(null);
+      return;
+    }
+
+    // Hashtag search (starts with #)
+    if (q.startsWith("#")) {
+      const tag = q.replace(/^#/, "").toLowerCase();
+      const filtered = stories.filter((story) => {
+        const text = (story.text || story.content || "").toLowerCase();
+        return text.includes(`#${tag}`);
+      });
+      setSearchResults(filtered);
+      return;
+    }
+
+    // Username search
+    const lower = q.toLowerCase();
+    // find users whose displayName match
+    const matchingUserIds = new Set(
+      stories
+        .filter((s) => (s.displayName || "").toLowerCase().includes(lower))
+        .map((s) => s.userId)
+    );
+
+    // filter posts by those users
+    const filteredByUser = stories.filter((s) => matchingUserIds.has(s.userId));
+    setSearchResults(filteredByUser);
+  }, [searchQuery, stories]);
 
   useEffect(() => {
     fetchUserProfile();
@@ -80,10 +116,14 @@ export default function StoriesScreen() {
 
             let userData = userCache.get(storyData.userId);
             if (!userData) {
-              const userDoc = await getDoc(doc(db, "users", storyData.userId));
-              userData = userDoc.exists()
-                ? (userDoc.data() as { displayName: string; profilePicture: string })
-                : { displayName: "Anonymous", profilePicture: "" };
+              try {
+                const userDoc = await getDoc(doc(db, "users", storyData.userId));
+                userData = userDoc.exists()
+                  ? (userDoc.data() as { displayName: string; profilePicture: string })
+                  : { displayName: "Anonymous", profilePicture: "" };
+              } catch (e) {
+                userData = { displayName: "Anonymous", profilePicture: "" };
+              }
               userCache.set(storyData.userId, userData);
             }
 
@@ -96,19 +136,24 @@ export default function StoriesScreen() {
           })
         );
 
-        setStories(storiesList);
+        setLocalStories(storiesList);
         setCachedStories(storiesList);
+        // store into in-memory store so other screens can read it
+        setStories(storiesList);
       },
       (error) => {
         console.log("Error fetching stories:", error);
-        if (cachedStories.length > 0) setStories(cachedStories);
+        if (cachedStories.length > 0) setLocalStories(cachedStories);
       }
     );
 
     return () => {
       unsubscribe();
-      if (sound) sound.unloadAsync();
+      if (sound) {
+        sound.unloadAsync().catch(() => {});
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchUserProfile = async () => {
@@ -141,6 +186,7 @@ export default function StoriesScreen() {
       await newSound.playAsync();
 
       newSound.setOnPlaybackStatusUpdate((status) => {
+        // @ts-ignore
         if (status.isLoaded && "didJustFinish" in status && status.didJustFinish) {
           setPlayingId(null);
           setSound(null);
@@ -148,16 +194,14 @@ export default function StoriesScreen() {
       });
     } catch (error: any) {
       console.log(error);
-      Alert.alert("Playback failed", error.message);
+      Alert.alert("Playback failed", error?.message || "Unknown error");
     }
   };
 
   const renderItem = ({ item }: { item: Story }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <TouchableOpacity
-          onPress={() => router.push(`/stories/UserStoriesScreen?userId=${item.userId}`)}
-        >
+        <TouchableOpacity onPress={() => router.push(`/stories/UserStoriesScreen?userId=${item.userId}`)}>
           {item.profilePicture ? (
             <Image source={{ uri: item.profilePicture }} style={styles.avatarImage} />
           ) : (
@@ -197,11 +241,7 @@ export default function StoriesScreen() {
           style={[styles.playButton, playingId === item.id && styles.playingButton]}
           onPress={() => playAudio(item.content, item.id)}
         >
-          <MaterialIcons
-            name={playingId === item.id ? "pause" : "play-arrow"}
-            size={28}
-            color="white"
-          />
+          <MaterialIcons name={playingId === item.id ? "pause" : "play-arrow"} size={28} color="white" />
           <Text style={styles.audioText}>
             {playingId === item.id ? "Playing..." : "Play Audio"}
           </Text>
@@ -209,6 +249,9 @@ export default function StoriesScreen() {
       )}
     </View>
   );
+
+  // Determine list to render: if searching show searchResults (even empty array), else show full feed
+  const listToShow = searchResults !== null ? searchResults : stories;
 
   return (
     <View style={styles.container}>
@@ -231,14 +274,33 @@ export default function StoriesScreen() {
         </View>
       </View>
 
+      {/* Search bar */}
+      <View style={styles.searchBarContainer}>
+        <Ionicons name="search" size={20} color="#666" style={{ marginHorizontal: 8 }} />
+        <TextInput
+          placeholder='Search users or type "#tag"'
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchInput}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery("")} style={{ padding: 8 }}>
+            <Ionicons name="close-circle" size={18} color="#888" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <FlatList
-        data={stories}
+        data={listToShow}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={{ padding: 12, paddingBottom: 80 }}
         ListEmptyComponent={
           <Text style={{ textAlign: "center", marginTop: 50, color: "#999" }}>
-            No stories yet.
+            {searchResults !== null
+              ? `No posts match "${searchQuery}"`
+              : "No stories yet."}
           </Text>
         }
       />
@@ -261,6 +323,21 @@ const styles = StyleSheet.create({
   profileButton: { padding: 4, borderRadius: 20, backgroundColor: "#F0F0F0" },
   topAvatar: { width: 40, height: 40, borderRadius: 20 },
   createButton: { marginLeft: 12, padding: 4 },
+
+  // search bar
+  searchBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    margin: 12,
+    paddingHorizontal: 8,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#EEE",
+    height: 44,
+  },
+  searchInput: { flex: 1, fontSize: 16, height: "100%" },
+
   card: { backgroundColor: "white", borderRadius: 12, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 3, overflow: "hidden" },
   cardHeader: { flexDirection: "row", alignItems: "center", padding: 12, borderBottomWidth: 1, borderBottomColor: "#EEE" },
   avatarCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#8B5CF6", justifyContent: "center", alignItems: "center", marginRight: 10 },

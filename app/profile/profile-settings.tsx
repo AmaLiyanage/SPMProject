@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, ScrollView, TextInput, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useProfilePicture } from '../../../hooks/useProfilePicture';
-import { clearAppData } from '../../../utils/appData';
-import ProfilePicture from '../../../components/ProfilePicture';
+import { useAuth } from '../../contexts/AuthContext';
+import { useProfilePicture } from '../../hooks/useProfilePicture';
+import { clearAppData } from '../../utils/appData';
+import ProfilePicture from '../../components/ProfilePicture';
 
 export default function ProfileSettingsScreen() {
   const { userProfile, updateDisplayName } = useAuth();
@@ -164,7 +164,7 @@ export default function ProfileSettingsScreen() {
           {userProfile?.userType === 'mentor' && (
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => router.push('/(tabs)/profile/edit-mentor-profile')}
+              onPress={() => router.push('/profile/edit-mentor-profile')}
             >
               <View style={styles.menuItemLeft}>
                 <Ionicons name="briefcase" size={24} color="#059669" />

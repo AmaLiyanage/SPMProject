@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../contexts/AuthContext';
-import { validatePassword, getFirebaseErrorMessage } from '../../../utils/validation';
-import PasswordConfirmationModal from '../../../components/PasswordConfirmationModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { validatePassword, getFirebaseErrorMessage } from '../../utils/validation';
+import PasswordConfirmationModal from '../../components/PasswordConfirmationModal';
 
 export default function PrivacySecurityScreen() {
   const { deleteAccount, changePassword, userProfile } = useAuth();

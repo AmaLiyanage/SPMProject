@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, SafeAreaView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useProfilePicture } from '../../../hooks/useProfilePicture';
-import ProfilePicture from '../../../components/ProfilePicture';
+import { useAuth } from '../../contexts/AuthContext';
+import { useProfilePicture } from '../../hooks/useProfilePicture';
+import ProfilePicture from '../../components/ProfilePicture';
 
 export default function AccountScreen() {
   const { userProfile, logout, refreshProfile } = useAuth();
@@ -58,7 +58,14 @@ export default function AccountScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Text style={styles.title}>Profile</Text>
+        
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#8B5CF6" />
+          </TouchableOpacity>
+          <Text style={styles.title}>My Profile</Text>
+          <View style={styles.headerSpacer} />
+        </View>
         
         {userProfile && (
           <View style={styles.profileSection}>
@@ -109,7 +116,7 @@ export default function AccountScreen() {
           {/* Other menu items */}
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/profile/profile-settings')}
+            onPress={() => router.push('/profile/profile-settings')}
           >
             <Text style={styles.menuText}>Profile Settings</Text>
             <Text style={styles.arrow}>›</Text>
@@ -122,7 +129,7 @@ export default function AccountScreen() {
           
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/profile/privacy-security')}
+            onPress={() => router.push('/profile/privacy-security')}
           >
             <Text style={styles.menuText}>Privacy & Security</Text>
             <Text style={styles.arrow}>›</Text>
@@ -154,14 +161,39 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingTop: 20,
+    paddingTop: 0,
     paddingBottom: 40,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+  },
+  headerSpacer: {
+    width: 40, // Same width as back button to center the title
+  },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 30,
+    fontSize: 20,
+    fontWeight: '600',
     color: '#8B5CF6',
+    textAlign: 'center',
+    flex: 1,
   },
   profileSection: {
     backgroundColor: '#f8f9fa',

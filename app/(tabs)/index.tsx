@@ -2,9 +2,51 @@ import { ScrollView, StyleSheet, View, TouchableOpacity, Text } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfilePicture from '../../components/ProfilePicture';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 export default function HomeScreen() {
   const { userProfile } = useAuth();
+  const [stats, setStats] = useState({
+    stories: 0,
+    mentors: 0,
+    communityMembers: 0,
+  });
+
+  useEffect(() => {
+    fetchRealStats();
+  }, []);
+
+  const fetchRealStats = async () => {
+    try {
+      // Fetch stories count
+      const storiesSnapshot = await getDocs(collection(db, 'stories'));
+      const storiesCount = storiesSnapshot.size;
+
+      // Fetch mentors count
+      const mentorsQuery = query(collection(db, 'users'), where('userType', '==', 'mentor'));
+      const mentorsSnapshot = await getDocs(mentorsQuery);
+      const mentorsCount = mentorsSnapshot.size;
+
+      // Fetch total community members count
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const communityCount = usersSnapshot.size;
+
+      setStats({
+        stories: storiesCount,
+        mentors: mentorsCount,
+        communityMembers: communityCount,
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const handleProfilePress = () => {
+    router.push('/profile');
+  };
 
   return (
     <View style={styles.container}>
@@ -14,11 +56,13 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>
               Hello, {userProfile.displayName}!
             </Text>
-            <ProfilePicture
-              imageUri={userProfile.profilePicture}
-              userType={userProfile.userType}
-              size={40}
-            />
+            <TouchableOpacity onPress={handleProfilePress}>
+              <ProfilePicture
+                imageUri={userProfile.profilePicture}
+                userType={userProfile.userType}
+                size={40}
+              />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -66,15 +110,15 @@ export default function HomeScreen() {
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>1K+</Text>
+            <Text style={styles.statNumber}>{stats.stories}</Text>
             <Text style={styles.statLabel}>Stories Shared</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>500+</Text>
+            <Text style={styles.statNumber}>{stats.mentors}</Text>
             <Text style={styles.statLabel}>Mentors</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>5K+</Text>
+            <Text style={styles.statNumber}>{stats.communityMembers}</Text>
             <Text style={styles.statLabel}>Community Members</Text>
           </View>
         </View>

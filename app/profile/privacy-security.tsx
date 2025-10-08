@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../contexts/AuthContext';
-import { validatePassword, getFirebaseErrorMessage } from '../../../utils/validation';
+import { useAuth } from '../../contexts/AuthContext';
+import { validatePassword, getFirebaseErrorMessage } from '../../utils/validation';
+import PasswordConfirmationModal from '../../components/PasswordConfirmationModal';
 
 export default function PrivacySecurityScreen() {
   const { deleteAccount, changePassword, userProfile } = useAuth();
@@ -13,6 +14,7 @@ export default function PrivacySecurityScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const router = useRouter();
 
   const handleChangePassword = async () => {
@@ -57,7 +59,7 @@ export default function PrivacySecurityScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      `⚠️ WARNING: This action is PERMANENT and IRREVERSIBLE\n\nDeleting your account will:\n• Remove all your profile data\n• Delete you from our database\n• Remove your Firebase Authentication\n• Cannot be undone\n\nAccount: ${userProfile?.email}\n\nAre you absolutely sure?`,
+      `⚠️ WARNING: This action is PERMANENT and IRREVERSIBLE\n\nDeleting your account will:\n - Remove all your profile data\n- Delete you from our database\n- Remove Firebase Authentication\n- Cannot be undone\n\nAccount: ${userProfile?.email}\n\nAre you absolutely sure?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -72,22 +74,22 @@ export default function PrivacySecurityScreen() {
   const confirmDeleteAccount = () => {
     Alert.alert(
       'Final Confirmation',
-      '🚨 LAST WARNING 🚨\n\nThis is your final chance to cancel.\n\nYour account and ALL DATA will be permanently deleted and CANNOT be recovered.\n\nTap "DELETE FOREVER" only if you are 100% sure.',
+      '\nThis is your final chance to cancel.\n\nYour account and ALL DATA will be permanently deleted and CANNOT be recovered.\n\nTap "DELETE FOREVER" only if you are 100% sure.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'DELETE FOREVER',
           style: 'destructive',
-          onPress: executeDeleteAccount
+          onPress: () => setShowDeleteModal(true)
         }
       ]
     );
   };
 
-  const executeDeleteAccount = async () => {
-    setLoading(true);
+  const executeDeleteAccount = async (password: string) => {
     try {
-      await deleteAccount();
+      await deleteAccount(password);
+      setShowDeleteModal(false);
       Alert.alert(
         'Account Deleted',
         'Your account has been permanently deleted from our systems.',
@@ -99,17 +101,8 @@ export default function PrivacySecurityScreen() {
         ]
       );
     } catch (error: any) {
-      let errorMessage = 'Failed to delete account. Please try again.';
-      
-      if (error.code === 'auth/requires-recent-login') {
-        errorMessage = 'For security reasons, please sign out and sign back in, then try deleting your account again.';
-      } else {
-        errorMessage = getFirebaseErrorMessage(error) || errorMessage;
-      }
-      
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setLoading(false);
+      // Error will be handled by the modal
+      throw error;
     }
   };
 
@@ -250,6 +243,17 @@ export default function PrivacySecurityScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Password Confirmation Modal for Account Deletion */}
+      <PasswordConfirmationModal
+        visible={showDeleteModal}
+        title="Confirm Account Deletion"
+        message="To permanently delete your account and all associated data, please enter your current password."
+        warningText="This action cannot be undone. All your data will be permanently lost."
+        confirmButtonText="DELETE"
+        onConfirm={executeDeleteAccount}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </SafeAreaView>
   );
 }

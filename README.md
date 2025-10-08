@@ -1,7 +1,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
+<<<<<<< HEAD
 >>>>>>> Ama
+=======
+>>>>>>> origin/Ama
+>>>>>>> origin/final
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
@@ -57,4 +61,8 @@ Join our community of developers creating universal apps.
 # SPMProject
 >>>>>>> 5b19183459a5848fb7966f71af13544e8e784a28
 =======
+<<<<<<< HEAD
 >>>>>>> Ama
+=======
+>>>>>>> origin/Ama
+>>>>>>> origin/final

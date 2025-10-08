@@ -393,6 +393,7 @@ const styles = StyleSheet.create({
   deleteButtonText: { color: 'white', fontSize: 16, fontWeight: '600' },
   findMentorsButton: {
     position: 'absolute',
+    marginBottom: 70,
     bottom: 20,
     left: 16,
     right: 16,

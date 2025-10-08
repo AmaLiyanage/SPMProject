@@ -20,21 +20,26 @@ import {
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { db } from "../../../../config/firebase";
 
 interface ChatMessage {
   id: string;
-  type: "text" | "voice" | "video" | "deleted" | "task";
+  type: "text" | "voice" | "video" | "deleted" | "task" | "image";
   content: string;
   senderId: string;
   timestamp: Timestamp | null;
@@ -74,7 +79,7 @@ export default function ChatScreen() {
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [deletedMessagesQueue, setDeletedMessagesQueue] = useState<ChatMessage[]>([]);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const [previewType, setPreviewType] = useState<"voice" | "video" | null>(null);
+  const [previewType, setPreviewType] = useState<"voice" | "video" | "image" | null>(null);
   const [otherUser, setOtherUser] = useState<UserProfile>({
     uid: "",
     displayName: "User",
@@ -88,10 +93,38 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [editText, setEditText] = useState("");
-
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [imageLoading, setImageLoading] = useState<{[key: string]: boolean}>({});
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+ const [showMediaOptions, setShowMediaOptions] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
   const auth = getAuth();
   const userId = auth.currentUser?.uid || "";
+
+  // Handle keyboard events
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        setKeyboardOffset(event.endCoordinates.height);
+        // Scroll to bottom when keyboard appears
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardOffset(0);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   /** Fetch current user type and other user info */
   useEffect(() => {
@@ -197,8 +230,8 @@ export default function ChatScreen() {
 
   /** Check if message can be edited (within 10 minutes) */
   const canEditMessage = (message: ChatMessage) => {
-    // Only allow editing text and task messages, not voice, video, or deleted
-    if (message.type === "voice" || message.type === "video" || message.type === "deleted") return false;
+    // Only allow editing text and task messages, not voice, video, images, or deleted
+    if (message.type === "voice" || message.type === "video" || message.type === "image" || message.type === "deleted") return false;
     if (message.senderId !== userId) return false;
     if (!message.timestamp) return false;
     
@@ -425,6 +458,65 @@ export default function ChatScreen() {
     setPreviewType("voice");
   };
 
+  /** Select image or video from gallery */
+  const pickMedia = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Gallery permission is required to select media",
+        [{ text: "OK", style: "default" }],
+        { userInterfaceStyle: 'dark' }
+      );
+      return;
+    }
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All, // Allow both images and videos
+      // Removed allowsEditing to prevent cropping
+      allowsEditing: false,
+      // Allow any aspect ratio
+      aspect: undefined,
+      // Set quality to maximum
+      quality: 1,
+    });
+    
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      setPreviewUri(asset.uri);
+      setPreviewType(asset.type === 'video' ? 'video' : 'image');
+    }
+  };
+
+  /** Capture image from camera */
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Camera permission is required to take photos",
+        [{ text: "OK", style: "default" }],
+        { userInterfaceStyle: 'dark' }
+      );
+      return;
+    }
+    
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      // Removed allowsEditing to prevent cropping
+      allowsEditing: false,
+      // Allow any aspect ratio
+      aspect: undefined,
+      // Set quality to maximum
+      quality: 1,
+    });
+    
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setPreviewUri(result.assets[0].uri);
+      setPreviewType("image");
+    }
+  };
+
   /** Capture video */
   const recordVideo = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -437,7 +529,10 @@ export default function ChatScreen() {
       );
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, quality: 1 });
+    const result = await ImagePicker.launchCameraAsync({ 
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos, 
+      quality: 1 
+    });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setPreviewUri(result.assets[0].uri);
       setPreviewType("video");
@@ -451,7 +546,7 @@ export default function ChatScreen() {
     const response = await fetch(previewUri);
     const blob = await response.blob();
     const storage = getStorage();
-    const path = `${previewType}/${userId}/${Date.now()}${previewType === "voice" ? ".m4a" : ".mp4"}`;
+    const path = `${previewType}/${userId}/${Date.now()}${previewType === "voice" ? ".m4a" : previewType === "image" ? ".jpg" : ".mp4"}`;
     const mediaRef = ref(storage, path);
     await uploadBytes(mediaRef, blob);
     const downloadURL = await getDownloadURL(mediaRef);
@@ -479,7 +574,7 @@ export default function ChatScreen() {
     const chatDoc = await getDoc(doc(db, "chats", chatId));
     const chatData = chatDoc.data() as ChatData;
     const otherUserId = chatData.mentorId === userId ? chatData.userId : chatData.mentorId;
-    const lastMessageText = previewType === "voice" ? "🎤 Voice" : "📹 Video";
+    const lastMessageText = previewType === "voice" ? "🎤 Voice" : previewType === "image" ? "📷 Image" : "📹 Video";
     
     await updateDoc(doc(db, "chats", chatId), {
       lastMessage: lastMessageText,
@@ -544,7 +639,11 @@ export default function ChatScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
       {/* Header */}
       <View style={styles.header}>
         {otherUser.profilePicture ? (
@@ -702,6 +801,9 @@ export default function ChatScreen() {
             {previewType === "video" && previewUri && (
               <Video source={{ uri: previewUri }} useNativeControls resizeMode={ResizeMode.CONTAIN} style={{ width: 300, height: 200, borderRadius: 10 }} />
             )}
+            {previewType === "image" && previewUri && (
+              <Image source={{ uri: previewUri }} style={{ maxWidth: 300, maxHeight: 400, borderRadius: 10, resizeMode: "contain" }} />
+            )}
             <View style={styles.previewButtons}>
               <TouchableOpacity onPress={sendPreview} style={[styles.previewActionButton, styles.sendActionButton]}>
                 <Text style={styles.previewActionText}>Send</Text>
@@ -712,6 +814,21 @@ export default function ChatScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Full Screen Image Modal */}
+      <Modal visible={!!fullScreenImage} transparent animationType="fade">
+        <TouchableOpacity 
+          style={styles.fullScreenImageOverlay}
+          onPress={() => setFullScreenImage(null)}
+          activeOpacity={1}
+        >
+          <Image 
+            source={{ uri: fullScreenImage || '' }} 
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
       </Modal>
 
       {/* Undo bar - Only shown for delete for me */}
@@ -725,148 +842,213 @@ export default function ChatScreen() {
       )}
 
       {/* Chat list */}
-      <FlatList
-        ref={flatListRef}
-        data={filteredMessages}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 10 }}
-        renderItem={({ item }) => {
-          const isMine = item.senderId === userId;
-          const isSelected = selectedMessages.has(item.id);
-          const isDeleted = item.type === "deleted";
-          const canEdit = canEditMessage(item);
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.messagesContainer}>
+          <FlatList
+            ref={flatListRef}
+            data={filteredMessages}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 10 }}
+            renderItem={({ item }) => {
+              const isMine = item.senderId === userId;
+              const isSelected = selectedMessages.has(item.id);
+              const isDeleted = item.type === "deleted";
+              const canEdit = canEditMessage(item);
 
-          return (
-            <TouchableOpacity 
-              onLongPress={() => toggleSelectMessage(item.id)}
-              onPress={() => canEdit && startEditing(item)}
-              style={[styles.messageWrapper, isMine ? styles.myMessageWrapper : styles.theirMessageWrapper]}
-            >
-              <View style={[
-                styles.messageBubble, 
-                isMine ? styles.myMessageBubble : styles.theirMessageBubble, 
-                isSelected && styles.selectedMessage,
-                item.type === "task" && styles.taskMessageBubble,
-                canEdit && styles.editableMessage
-              ]}>
-                {isDeleted ? (
-                  <Text style={[styles.messageText, styles.deletedMessage]}>{item.content}</Text>
-                ) : (
-                  <>
-                    {item.type === "text" && <Text style={styles.messageText}>{item.content}</Text>}
-                    
-                    {item.type === "voice" && (
-                      <TouchableOpacity onPress={() => playAudio(item)} style={styles.voiceMessage}>
-                        <FontAwesome5 name={playingMessageId === item.id ? "pause" : "play"} size={16} color="#7B4DFF" />
-                        <Text style={styles.voiceText}>{playingMessageId === item.id ? "Playing" : "Voice"}</Text>
-                        <Text style={styles.voiceDuration}>({Math.round(playingMessageId === item.id ? playbackPosition / 1000 : item.duration || 0)}s / {Math.round(item.duration || 0)}s)</Text>
-                      </TouchableOpacity>
-                    )}
-                    
-                    {item.type === "video" && (
-                      <Video source={{ uri: item.content }} useNativeControls resizeMode={ResizeMode.CONTAIN} style={styles.videoMessage} />
-                    )}
-                    
-                    {item.type === "task" && (
-                      <View style={styles.taskContainer}>
-                        <View style={styles.taskHeader}>
-                          <FontAwesome5 name="tasks" size={16} color="#7B4DFF" />
-                          <Text style={styles.taskTitle}>{item.title}</Text>
-                        </View>
-                        {item.content && <Text style={styles.taskDescription}>{item.content}</Text>}
-                        <View style={styles.taskFooter}>
-                          <View style={[
-                            styles.taskStatus, 
-                            item.taskStatus === "completed" ? styles.taskCompleted : styles.taskPending
-                          ]}>
-                            <Text style={styles.taskStatusText}>
-                             {item.taskStatus === "completed" ? "Completed" : "Pending"}
-                            </Text>
-                          </View>
-                          {!isMine && item.taskStatus === "pending" && (
-                            <TouchableOpacity 
-                              onPress={() => completeTask(item.id)}
-                              style={styles.completeTaskButton}
-                            >
-                              <Text style={styles.completeTaskText}>Mark Complete</Text>
+              return (
+                <TouchableOpacity 
+                  onLongPress={() => toggleSelectMessage(item.id)}
+                  onPress={() => canEdit && startEditing(item)}
+                  style={[styles.messageWrapper, isMine ? styles.myMessageWrapper : styles.theirMessageWrapper]}
+                >
+                  <View style={[
+                    styles.messageBubble, 
+                    isMine ? styles.myMessageBubble : styles.theirMessageBubble, 
+                    isSelected && styles.selectedMessage,
+                    item.type === "task" && styles.taskMessageBubble,
+                    canEdit && styles.editableMessage
+                  ]}>
+                    {isDeleted ? (
+                      <Text style={[styles.messageText, styles.deletedMessage]}>{item.content}</Text>
+                    ) : (
+                      <>
+                        {item.type === "text" && <Text style={styles.messageText}>{item.content}</Text>}
+                        
+                        {item.type === "voice" && (
+                          <TouchableOpacity onPress={() => playAudio(item)} style={styles.voiceMessage}>
+                            <FontAwesome5 name={playingMessageId === item.id ? "pause" : "play"} size={16} color="#7B4DFF" />
+                            <Text style={styles.voiceText}>{playingMessageId === item.id ? "Playing" : "Voice"}</Text>
+                            <Text style={styles.voiceDuration}>({Math.round(playingMessageId === item.id ? playbackPosition / 1000 : item.duration || 0)}s / {Math.round(item.duration || 0)}s)</Text>
+                          </TouchableOpacity>
+                        )}
+                        
+                        {item.type === "video" && (
+                          <Video source={{ uri: item.content }} useNativeControls resizeMode={ResizeMode.CONTAIN} style={styles.videoMessage} />
+                        )}
+                        
+                        {item.type === "image" && (
+                          <View style={styles.imageContainer}>
+                            <TouchableOpacity onPress={() => setFullScreenImage(item.content)}>
+                              <Image 
+                                source={{ uri: item.content }} 
+                                style={styles.imageMessage}
+                                onLoadStart={() => setImageLoading(prev => ({...prev, [item.id]: true}))}
+                                onLoadEnd={() => setImageLoading(prev => ({...prev, [item.id]: false}))}
+                                onError={(e) => console.log("Error loading image:", e.nativeEvent.error)}
+                              />
                             </TouchableOpacity>
-                          )}
-                        </View>
+                            {imageLoading[item.id] && (
+                              <ActivityIndicator style={styles.imageLoading} color="#7B4DFF" />
+                            )}
+                          </View>
+                        )}
+                        
+                        {item.type === "task" && (
+                          <View style={styles.taskContainer}>
+                            <View style={styles.taskHeader}>
+                              <FontAwesome5 name="tasks" size={16} color="#7B4DFF" />
+                              <Text style={styles.taskTitle}>{item.title}</Text>
+                            </View>
+                            {item.content && <Text style={styles.taskDescription}>{item.content}</Text>}
+                            <View style={styles.taskFooter}>
+                              <View style={[
+                                styles.taskStatus, 
+                                item.taskStatus === "completed" ? styles.taskCompleted : styles.taskPending
+                              ]}>
+                                <Text style={styles.taskStatusText}>
+                                {item.taskStatus === "completed" ? "Completed" : "Pending"}
+                                </Text>
+                              </View>
+                              {!isMine && item.taskStatus === "pending" && (
+                                <TouchableOpacity 
+                                  onPress={() => completeTask(item.id)}
+                                  style={styles.completeTaskButton}
+                                >
+                                  <Text style={styles.completeTaskText}>Mark Complete</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        )}
+                      </>
+                    )}
+                    <View style={styles.messageFooter}>
+                      <Text style={styles.timestamp}>{formatTime(item.timestamp)}</Text>
+                      {item.edited && <Text style={styles.editedLabel}> (edited)</Text>}
+                      {isMine && item.status && !isDeleted && (
+                        <FontAwesome5 name={item.status === "seen" ? "check-double" : "check"} size={12} color="#7B4DFF" style={styles.statusIcon} />
+                      )}
+                    </View>
+                    {/* Only show edit indicator for text and task messages, not voice, video, or images */}
+                    {canEdit && (item.type === "text" || item.type === "task") && (
+                      <View style={styles.editIndicator}>
+                        <FontAwesome5 name="pencil-alt" size={10} color="#7B4DFF" />
                       </View>
                     )}
-                  </>
-                )}
-                <View style={styles.messageFooter}>
-                  <Text style={styles.timestamp}>{formatTime(item.timestamp)}</Text>
-                  {item.edited && <Text style={styles.editedLabel}> (edited)</Text>}
-                  {isMine && item.status && !isDeleted && (
-                    <FontAwesome5 name={item.status === "seen" ? "check-double" : "check"} size={12} color="#7B4DFF" style={styles.statusIcon} />
-                  )}
-                </View>
-                {/* Only show edit indicator for text and task messages, not voice or video */}
-                {canEdit && (item.type === "text" || item.type === "task") && (
-                  <View style={styles.editIndicator}>
-                    <FontAwesome5 name="pencil-alt" size={10} color="#7B4DFF" />
                   </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-      />
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      </TouchableWithoutFeedback>
 
-      {/* Input bar */}
-      <View style={styles.inputContainer}>
+      {/* Input bar - Always visible even when keyboard is open */}
+      <View style={[styles.inputContainer, { marginBottom: keyboardOffset > 0 ? 0 : 0 }]}>
         {selectedMessages.size > 0 ? (
           <TouchableOpacity onPress={deleteSelectedMessages} style={styles.deleteButton}>
             <FontAwesome5 name="trash" size={20} color="white" />
           </TouchableOpacity>
         ) : (
           <>
-            {/* Only show task button for mentors */}
-            {isMentor && (
-              <TouchableOpacity 
-                onPress={() => setShowTaskModal(true)}
-                style={styles.taskButton}
-              >
-                <FontAwesome5 name="plus" size={16} color="#7B4DFF" />
-                <Text style={styles.taskButtonText}>Task</Text>
-              </TouchableOpacity>
-            )}
+            {/* Attach button that toggles media options */}
+            <TouchableOpacity 
+              onPress={() => setShowMediaOptions(!showMediaOptions)}
+              style={styles.attachButton}
+            >
+              <FontAwesome5 name="paperclip" size={22} color="#7B4DFF" />
+            </TouchableOpacity>
             
             <TextInput 
+              ref={inputRef}
               value={newMessage} 
               onChangeText={setNewMessage} 
               placeholder="Type a message..." 
               placeholderTextColor="#999"
-              style={[styles.input, !isMentor && { marginLeft: 0 }]} 
+              style={[styles.input, {maxHeight: 100}]} 
+              multiline
             />
+            
             <View style={styles.iconContainer}>
               {newMessage.trim() ? (
                 <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-                  <MaterialIcons name="send" size={24} color="white" />
+                  <MaterialIcons name="send" size={20} color="white" />
                 </TouchableOpacity>
               ) : (
-                <>
-                  <TouchableOpacity onPressIn={startRecording} onPressOut={stopRecording} style={styles.micButton}>
-                    <MaterialIcons name={recording ? "keyboard-voice" : "mic"} size={24} color="white" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={recordVideo} style={styles.cameraButton}>
-                    <FontAwesome5 name="camera" size={22} color="white" />
-                  </TouchableOpacity>
-                </>
+                <TouchableOpacity onPressIn={startRecording} onPressOut={stopRecording} style={styles.micButton}>
+                  <MaterialIcons name={recording ? "keyboard-voice" : "mic"} size={20} color="white" />
+                </TouchableOpacity>
               )}
             </View>
           </>
         )}
         {recording && <Text style={styles.recordingIndicator}>Recording...</Text>}
       </View>
-    </View>
+
+      {/* Media options panel (appears below input when showMediaOptions is true) */}
+      {showMediaOptions && (
+        <View style={styles.mediaOptionsContainer}>
+          <TouchableOpacity onPress={pickMedia} style={styles.mediaOption}>
+            <View style={[styles.mediaOptionIcon, {backgroundColor: '#4CAF50'}]}>
+              <FontAwesome5 name="images" size={20} color="white" />
+            </View>
+            <Text style={styles.mediaOptionText}>Gallery</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity onPress={takePhoto} style={styles.mediaOption}>
+            <View style={[styles.mediaOptionIcon, {backgroundColor: '#2196F3'}]}>
+              <FontAwesome5 name="camera" size={20} color="white" />
+            </View>
+            <Text style={styles.mediaOptionText}>Camera</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity onPress={recordVideo} style={styles.mediaOption}>
+            <View style={[styles.mediaOptionIcon, {backgroundColor: '#FF9800'}]}>
+              <FontAwesome5 name="video" size={20} color="white" />
+            </View>
+            <Text style={styles.mediaOptionText}>Video</Text>
+          </TouchableOpacity>
+          
+          {/* Only show task button for mentors */}
+          {isMentor && (
+            <TouchableOpacity 
+              onPress={() => {
+                setShowTaskModal(true);
+                setShowMediaOptions(false);
+              }}
+              style={styles.mediaOption}
+            >
+              <View style={[styles.mediaOptionIcon, {backgroundColor: '#9C27B0'}]}>
+                <FontAwesome5 name="tasks" size={20} color="white" />
+              </View>
+              <Text style={styles.mediaOptionText}>Task</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f2f2f2" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#f2f2f2" 
+  },
+  messagesContainer: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -874,6 +1056,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f2f2f2"
   },
   header: { 
+    marginTop: Platform.OS === "ios" ? 50 : 20,
     flexDirection: "row", 
     alignItems: "center", 
     padding: 15, 
@@ -963,6 +1146,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#FFD54F",
   },
+   
   selectedMessage: { 
     borderWidth: 2, 
     borderColor: "#FFD700" 
@@ -1001,6 +1185,22 @@ const styles = StyleSheet.create({
     width: 200, 
     height: 150, 
     borderRadius: 12 
+  },
+  imageContainer: {
+    position: 'relative',
+  },
+  imageMessage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    resizeMode: "cover"
+  },
+  imageLoading: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -10,
+    marginTop: -10,
   },
   taskContainer: {
     width: "100%",
@@ -1081,72 +1281,90 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   inputContainer: { 
+ 
     flexDirection: "row", 
     alignItems: "center", 
     padding: 12, 
     borderTopWidth: 1, 
     borderColor: "#E0E0E0", 
-    backgroundColor: "#FFFFFF" 
+    backgroundColor: "#FFFFFF",
+    minHeight: 60,
   },
-  taskButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F0EBFF",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  taskButtonText: {
-    color: "#7B4DFF",
-    fontWeight: "500",
-    marginLeft: 5,
-  },
+
   iconContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginLeft: 8,
+  },
+  mediaButton: {
+    padding: 8,
+    marginLeft: 8,
+    backgroundColor: "#F0EBFF",
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  taskButton: {
+    padding: 8,
+    marginLeft: 8,
+    backgroundColor: "#F0EBFF",
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: { 
+    marginBottom:150,
     flex: 1, 
     borderWidth: 1, 
     borderColor: "#E0E0E0", 
     borderRadius: 25, 
     paddingHorizontal: 16, 
-    height: 45, 
+    paddingVertical: 10,
     backgroundColor: "#F8F8F8",
     fontSize: 16,
     color: "#333",
-    marginLeft: 8
+    marginRight: 8,
+    maxHeight: 100,
   },
   sendButton: { 
     backgroundColor: "#7B4DFF", 
-    padding: 12, 
-    borderRadius: 25,
+    padding: 10, 
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    width: 40,
+    height: 40,
   },
+
   deleteButton: {
     backgroundColor: "#FF4757",
     padding: 12,
     borderRadius: 25,
-    marginLeft: 8
+    marginLeft: 8,
+    marginBottom: 80
   },
   micButton: { 
     backgroundColor: "#7B4DFF", 
-    padding: 12, 
-    borderRadius: 25,
+    padding: 10, 
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    width: 40,
+    height: 40,
   },
   cameraButton: { 
     backgroundColor: "#7B4DFF", 
-    padding: 12, 
-    borderRadius: 25,
+    padding: 10, 
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+    width: 40,
+    height: 40,
   },
   recordingIndicator: { 
     color: "#FF4757", 
@@ -1214,6 +1432,16 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     textAlign: "center"
+  },
+  fullScreenImageOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullScreenImage: {
+    width: "100%",
+    height: "100%",
   },
   // Edit Modal Styles
   editModalOverlay: {
@@ -1378,4 +1606,37 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
+   attachButton: {
+    padding: 10,
+    marginRight: 8,
+  },
+ mediaOptionsContainer: {
+  marginBottom: 50,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    padding: 15,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  mediaOption: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 70,
+  },
+  mediaOptionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  mediaOptionText: {
+    fontSize: 12,
+    color: "#333",
+    textAlign: "center",
+  },
+
 });

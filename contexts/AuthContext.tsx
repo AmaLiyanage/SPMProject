@@ -451,8 +451,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
+          // Don't throw error here as it may be a permission issue during logout
         }
       } else {
+        // User is signed out - immediately clear profile without Firestore operations
         setUserProfile(null);
       }
       

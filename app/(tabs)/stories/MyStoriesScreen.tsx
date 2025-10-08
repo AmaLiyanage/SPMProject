@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   createButton: { padding: 4 },
 
   card: {
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#ffffffff",
     borderRadius: 12,
     marginBottom: 20,
     shadowColor: "#000",

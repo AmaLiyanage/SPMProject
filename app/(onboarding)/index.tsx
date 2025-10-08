@@ -29,7 +29,7 @@ export default function OnboardingScreen1() {
 
           <View style={styles.mainContent}>
             <Image 
-              source={require('../../assets/images/herPowerLogo2.png')} 
+              source={require('../../assets/images/icon.png')} 
               style={styles.logo}
               resizeMode="contain"
             />

@@ -16,10 +16,10 @@
       "supportsTablet": true
     },
     "android": {
-      "icon": "./assets/images/herPowerLogo2.png",
-      "roundIcon": "./assets/images/herPowerLogo2.png",
+      "icon": "./assets/images/icon.png",
+      "roundIcon": "./assets/images/icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/herPowerLogo2.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -39,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/herPowerLogo2.png",
+          "image": "./assets/images/splash-icon.png",
           "imageWidth": 250,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",

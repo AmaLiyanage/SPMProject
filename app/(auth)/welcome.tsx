@@ -16,7 +16,7 @@ export default function WelcomeScreen() {
           {/* Logo Section */}
           <View style={styles.logoSection}>
             <Image 
-              source={require('../../assets/images/herPowerLogo2.png')} 
+              source={require('../../assets/images/icon.png')} 
               style={styles.logo}
               resizeMode="contain"
             />

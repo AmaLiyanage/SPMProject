@@ -1,5 +1,5 @@
 import { Feather, FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Audio, AVPlaybackStatus, AVPlaybackStatusSuccess, ResizeMode, Video } from "expo-av";
+import { Audio, ResizeMode, Video } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { getAuth } from "firebase/auth";
@@ -21,6 +21,15 @@ import {
 } from "react-native";
 import { db, storage } from "../../../config/firebase";
 
+// AssemblyAI config
+const API_CONFIG = {
+  ASSEMBLYAI: {
+    API_KEY: "a046c13c374d4c0394ee0a99c5a0d0e2",
+    UPLOAD_ENDPOINT: "https://api.assemblyai.com/v2/upload",
+    TRANSCRIPT_ENDPOINT: "https://api.assemblyai.com/v2/transcript",
+  },
+};
+
 const CreatePost = () => {
   const auth = getAuth();
   const router = useRouter();
@@ -36,31 +45,107 @@ const CreatePost = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState<string>("");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionProgress, setTranscriptionProgress] = useState<string>("");
 
   const videoRef = useRef<Video>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (!userId) Alert.alert("Error", "User not logged in");
-
     return () => {
-      if (sound) sound.unloadAsync();
-      if (recording) recording.stopAndUnloadAsync();
+      cleanup();
     };
   }, [userId]);
 
-  // -------- PICK IMAGE/VIDEO --------
+  const cleanup = async () => {
+    if (sound) await sound.unloadAsync();
+    if (recording) await recording.stopAndUnloadAsync();
+  };
+
+  // ---------- ASSEMBLYAI SPEECH-TO-TEXT ----------
+  const uploadAudioToAssemblyAI = async (audioUri: string): Promise<string> => {
+    const response = await fetch(audioUri);
+    const audioBlob = await response.blob();
+    const uploadResponse = await fetch(API_CONFIG.ASSEMBLYAI.UPLOAD_ENDPOINT, {
+      method: "POST",
+      headers: { authorization: API_CONFIG.ASSEMBLYAI.API_KEY },
+      body: audioBlob,
+    });
+    if (!uploadResponse.ok) throw new Error(`Upload failed: ${uploadResponse.status}`);
+    const uploadResult = await uploadResponse.json();
+    return uploadResult.upload_url;
+  };
+
+  const startTranscription = async (audioUrl: string): Promise<string> => {
+    const response = await fetch(API_CONFIG.ASSEMBLYAI.TRANSCRIPT_ENDPOINT, {
+      method: "POST",
+      headers: {
+        authorization: API_CONFIG.ASSEMBLYAI.API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ audio_url: audioUrl, language_code: "en_us", punctuate: true, format_text: true }),
+    });
+    if (!response.ok) throw new Error(`Transcription request failed: ${response.status}`);
+    const result = await response.json();
+    return result.id;
+  };
+
+  const pollTranscriptionResult = async (transcriptId: string): Promise<string> => {
+    const maxAttempts = 60;
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+      const response = await fetch(`${API_CONFIG.ASSEMBLYAI.TRANSCRIPT_ENDPOINT}/${transcriptId}`, {
+        headers: { authorization: API_CONFIG.ASSEMBLYAI.API_KEY },
+      });
+      if (!response.ok) throw new Error(`Polling failed: ${response.status}`);
+      const result = await response.json();
+      if (result.status === "completed") return result.text || "";
+      if (result.status === "error") throw new Error(result.error || "Transcription failed");
+      setTranscriptionProgress(`Processing... (${attempts + 1}/${maxAttempts})`);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      attempts++;
+    }
+    throw new Error("Transcription timed out");
+  };
+
+  const convertAudioToText = async () => {
+    if (!mediaUri || mediaType !== "audio") return Alert.alert("No Audio", "Please record audio first");
+    try {
+      setIsTranscribing(true);
+      setTranscriptionProgress("Uploading audio...");
+      const audioUrl = await uploadAudioToAssemblyAI(mediaUri);
+      setTranscriptionProgress("Starting transcription...");
+      const transcriptId = await startTranscription(audioUrl);
+      setTranscriptionProgress("Converting speech to text...");
+      const transcriptionText = await pollTranscriptionResult(transcriptId);
+      if (transcriptionText.trim()) {
+        const newText = textContent ? `${textContent}\n\n${transcriptionText}` : transcriptionText;
+        setTextContent(newText);
+        setTranscriptionProgress("✅ Speech converted to text!");
+        Alert.alert("Success", "Speech converted to text.", [{ text: "OK", onPress: () => setTranscriptionProgress("") }]);
+      } else {
+        Alert.alert("No Speech Detected", "Try recording again.");
+        setTranscriptionProgress("");
+      }
+    } catch (error: any) {
+      Alert.alert("Transcription Failed", error.message || "Please try again.");
+      setTranscriptionProgress("");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  // ---------- PICK IMAGE/VIDEO ----------
   const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") return Alert.alert("Permission required");
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       quality: 1,
       allowsEditing: true,
       aspect: [4, 3],
     });
-
     if (!result.canceled && result.assets.length > 0) {
       const picked = result.assets[0];
       setMediaUri(picked.uri);
@@ -68,69 +153,59 @@ const CreatePost = () => {
     }
   };
 
-  // -------- START RECORDING --------
+  // ---------- RECORD AUDIO ----------
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") return Alert.alert("Permission required");
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-      });
-
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true, staysActiveInBackground: true });
       const newRecording = new Audio.Recording();
       await newRecording.prepareToRecordAsync({
         android: {
           extension: ".m4a",
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 44100,
-          numberOfChannels: 2,
+          outputFormat: 2,
+          audioEncoder: 3,
+          sampleRate: 16000,
+          numberOfChannels: 1,
           bitRate: 128000,
         },
         ios: {
           extension: ".m4a",
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 2,
+          audioQuality: 0,
+          sampleRate: 16000,
+          numberOfChannels: 1,
           bitRate: 128000,
         },
-        web: { mimeType: "audio/webm", bitsPerSecond: 128000 },
+        web: {
+          mimeType: undefined,
+          bitsPerSecond: undefined,
+        },
       });
-
       setRecording(newRecording);
       setIsRecording(true);
-      setRecordingStatus("Recording...");
+      setRecordingStatus("🎙️ Recording...");
       await newRecording.startAsync();
     } catch (error: any) {
-      console.log("Recording failed:", error);
       Alert.alert("Recording failed", error.message);
       setIsRecording(false);
       setRecordingStatus("");
     }
   };
 
-  // -------- STOP RECORDING --------
   const stopRecording = async () => {
     if (!recording) return;
-
     try {
-      setRecordingStatus("Processing...");
+      setRecordingStatus("Processing recording...");
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
       if (uri) {
         setMediaUri(uri);
         setMediaType("audio");
-        setRecordingStatus("Recording saved");
+        setRecordingStatus("✅ Recording saved! Convert to text.");
       }
       setRecording(null);
       setIsRecording(false);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
     } catch (error: any) {
-      console.log("Stop recording error:", error);
       Alert.alert("Stop failed", error.message);
       setRecording(null);
       setIsRecording(false);
@@ -138,50 +213,15 @@ const CreatePost = () => {
     }
   };
 
-  // -------- PLAY AUDIO --------
-  const playAudio = async () => {
-    if (!mediaUri) return;
-    try {
-      if (sound) {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-        setSound(null);
-        setIsPlaying(false);
-        return;
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri: mediaUri });
-      setSound(newSound);
-      setIsPlaying(true);
-
-      newSound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-        if (!status.isLoaded) return;
-
-        const successStatus = status as AVPlaybackStatusSuccess;
-        if (successStatus.didJustFinish) {
-          setIsPlaying(false);
-          setSound(null);
-        }
-      });
-
-      await newSound.playAsync();
-    } catch (error: any) {
-      console.log("Playback error:", error);
-      Alert.alert("Playback failed", error.message);
-    }
-  };
-
+  // ---------- REMOVE MEDIA ----------
   const removeMedia = () => {
     setMediaUri(null);
     setMediaType(null);
-    if (sound) {
-      sound.unloadAsync();
-      setSound(null);
-      setIsPlaying(false);
-    }
     setRecordingStatus("");
+    setTranscriptionProgress("");
   };
 
+  // ---------- CANCEL POST ----------
   const cancelPost = () => {
     Alert.alert("Cancel Story", "Discard this story?", [
       { text: "No", style: "cancel" },
@@ -198,7 +238,7 @@ const CreatePost = () => {
     ]);
   };
 
-  // -------- UPLOAD STORY --------
+  // ---------- UPLOAD STORY ----------
   const uploadStory = async () => {
     if (!userId) return Alert.alert("Error", "User not logged in");
     if (!textContent && !mediaUri) return Alert.alert("Error", "Add text or media");
@@ -222,10 +262,7 @@ const CreatePost = () => {
         const blob = await response.blob();
         await uploadBytes(storageRef, blob);
         const contentUrl = await getDownloadURL(storageRef);
-        await updateDoc(doc(db, "stories", storyRef.id), {
-          content: contentUrl,
-          status: "published",
-        });
+        await updateDoc(doc(db, "stories", storyRef.id), { content: contentUrl, status: "published" });
       }
 
       setTitle("");
@@ -240,15 +277,10 @@ const CreatePost = () => {
     }
   };
 
+  // ---------- UI ----------
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        style={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header */}
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 }} style={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.headerContainer}>
           <TouchableOpacity onPress={() => router.push("/stories")} style={{ marginRight: 12 }}>
             <Ionicons name="arrow-back" size={28} color="#8B5CF6" />
@@ -262,91 +294,83 @@ const CreatePost = () => {
           <TextInput style={styles.input} placeholder="Story title..." value={title} onChangeText={setTitle} />
         </View>
 
-        {/* Text Content */}
+        {/* Combined Story + Voice-to-Text */}
         <View style={styles.card}>
-          <Text style={styles.label}>Story</Text>
+          <View style={styles.labelContainer}>
+            <Text style={styles.label}>Story</Text>
+            <Text style={styles.voiceHint}>🎤 Record & convert to text</Text>
+          </View>
+
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Share your story..."
             value={textContent}
             onChangeText={setTextContent}
             multiline
-            numberOfLines={5}
+            numberOfLines={6}
           />
+
+          {/* Voice buttons */}
+          <View style={styles.voiceButtonsContainer}>
+            <TouchableOpacity style={[styles.voiceButton, isRecording && styles.recordingButton]} onPress={isRecording ? stopRecording : startRecording} disabled={isUploading || isTranscribing}>
+              <FontAwesome name={isRecording ? "stop" : "microphone"} size={24} color={isRecording ? "#FF3B30" : "#007AFF"} />
+              <Text style={[styles.voiceButtonText, isRecording && styles.recordingText]}>
+                {isRecording ? "Stop Recording" : "Start Recording"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.voiceButton, (!mediaUri || mediaType !== "audio" || isTranscribing) && styles.disabledButton]} onPress={convertAudioToText} disabled={!mediaUri || mediaType !== "audio" || isTranscribing || isUploading}>
+              {isTranscribing ? <ActivityIndicator size="small" color="#4CAF50" /> : <MaterialIcons name="text-fields" size={24} color={(!mediaUri || mediaType !== "audio") ? "#C7C7CC" : "#4CAF50"} />}
+              <Text style={[styles.voiceButtonText, { color: isTranscribing ? "#4CAF50" : (!mediaUri || mediaType !== "audio") ? "#C7C7CC" : "#4CAF50" }]}>
+                {isTranscribing ? "Converting..." : "Convert to Text"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Status */}
+          {(recordingStatus || transcriptionProgress) && (
+            <View style={styles.statusContainer}>
+              <Text style={styles.statusText}>{transcriptionProgress || recordingStatus}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Media Buttons */}
+        {/* Media Picker */}
         <View style={styles.card}>
           <Text style={styles.label}>Add Media</Text>
           <View style={styles.mediaButtonsContainer}>
             <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
-              <Ionicons name="image-outline" size={24} color="#007AFF" />
+              <Ionicons name="image-outline" size={20} color="#007AFF" />
               <Text style={styles.mediaButtonText}>Photo/Video</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.mediaButton, isRecording && styles.recordingButton]}
-              onPress={isRecording ? stopRecording : startRecording}
-              disabled={isUploading}
-            >
-              <FontAwesome name={isRecording ? "stop-circle" : "microphone"} size={24} color={isRecording ? "#FF3B30" : "#007AFF"} />
-              <Text style={[styles.mediaButtonText, isRecording && styles.recordingText]}>{isRecording ? "Stop Recording" : "Record Audio"}</Text>
-            </TouchableOpacity>
           </View>
-          {recordingStatus ? <Text style={styles.recordingStatus}>{recordingStatus}</Text> : null}
         </View>
 
         {/* Media Preview */}
-        {mediaUri && (
+        {mediaUri && mediaType !== "audio" && (
           <View style={styles.card}>
             <View style={styles.mediaHeader}>
-              <Text style={styles.label}>
-                {mediaType === "image" ? "Image Preview" : mediaType === "video" ? "Video Preview" : "Audio Recording"}
-              </Text>
+              <Text style={styles.label}>{mediaType === "image" ? "Image Preview" : "Video Preview"}</Text>
               <TouchableOpacity onPress={removeMedia}>
                 <Feather name="x-circle" size={24} color="#8E8E93" />
               </TouchableOpacity>
             </View>
 
             {mediaType === "image" && <Image source={{ uri: mediaUri }} style={styles.imagePreview} />}
-            {mediaType === "audio" && (
-              <View style={styles.audioContainer}>
-                <TouchableOpacity style={[styles.playButton, isPlaying && styles.playingButton]} onPress={playAudio}>
-                  <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={28} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.audioText}>{isPlaying ? "Playing..." : "Tap to play your recording"}</Text>
-              </View>
-            )}
-            {mediaType === "video" && (
-              <Video
-                ref={videoRef}
-                source={{ uri: mediaUri }}
-                style={styles.videoPreview}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-              />
-            )}
+            {mediaType === "video" && <Video ref={videoRef} source={{ uri: mediaUri }} style={styles.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} />}
           </View>
         )}
 
         {/* Buttons */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <TouchableOpacity
-            style={[styles.uploadButton, { flex: 0.48, backgroundColor: "#FF3B30" }]}
-            onPress={cancelPost}
-            disabled={isUploading}
-          >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginHorizontal: 16, marginTop: 12 }}>
+          <TouchableOpacity style={[styles.uploadButton, { flex: 0.48, backgroundColor: "#FF3B30" }]} onPress={cancelPost} disabled={isUploading || isTranscribing}>
             <Feather name="x-circle" size={24} color="white" />
             <Text style={styles.uploadButtonText}>Cancel</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.uploadButton, { flex: 0.48 }, (!textContent && !mediaUri) && styles.uploadButtonDisabled]}
-            onPress={uploadStory}
-            disabled={!textContent && !mediaUri || isUploading}
-          >
+          <TouchableOpacity style={[styles.uploadButton, { flex: 0.48 }, (!textContent && !mediaUri) && styles.uploadButtonDisabled]} onPress={uploadStory} disabled={!textContent && !mediaUri || isUploading || isTranscribing}>
             {isUploading ? <ActivityIndicator color="white" /> : <Ionicons name="cloud-upload-outline" size={24} color="white" />}
-            {!isUploading && <Text style={styles.uploadButtonText}>Publish Story</Text>}
+            {!isUploading && <Text style={styles.uploadButtonText}>Upload</Text>}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -354,31 +378,33 @@ const CreatePost = () => {
   );
 };
 
-export default CreatePost;
-
-// ---------- STYLES ----------
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5", padding: 16 , marginTop: 30 },
-  headerContainer: { flexDirection: "row", alignItems: "center", marginBottom: 20 , marginTop: 20 },
-  header: { fontSize: 28, fontWeight: "bold", color: "#8B5CF6",marginLeft: 55,marginTop: 20 },
-  card: { backgroundColor: "white", borderRadius: 12, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
-  label: { fontWeight: "600", marginBottom: 8, color: "#333", fontSize: 16 },
-  input: { borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: "#FAFAFA" },
+  container: { flex: 1, padding: 16, backgroundColor: "#fff", marginTop: 45 },
+  headerContainer: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  header: { fontSize: 26, fontWeight: "bold", color: "#8B5CF6", marginLeft: 55 },
+  card: { backgroundColor: "#F9FAFB", padding: 12, borderRadius: 12, marginVertical: 8 },
+  labelContainer: { flexDirection: "row", justifyContent: "space-between" },
+  label: { fontSize: 16, fontWeight: "bold", color: "#111" },
+  voiceHint: { fontSize: 12, color: "#6B7280" },
+  input: { borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 8, padding: 8, marginTop: 8 },
   textArea: { height: 120, textAlignVertical: "top" },
-  mediaButtonsContainer: { flexDirection: "row", justifyContent: "space-between" },
-  mediaButton: { flexDirection: "row", alignItems: "center", padding: 12, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 8, backgroundColor: "#FAFAFA", flex: 1, marginHorizontal: 4, justifyContent: "center" },
-  mediaButtonText: { marginLeft: 8, color: "#007AFF", fontWeight: "500" },
-  recordingButton: { borderColor: "#FF3B30", backgroundColor: "#FFEEED" },
+  voiceButtonsContainer: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
+  voiceButton: { flex: 0.48, flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10, borderRadius: 8, borderWidth: 1, borderColor: "#007AFF" },
+  voiceButtonText: { marginLeft: 8, color: "#007AFF", fontWeight: "500" },
+  recordingButton: { borderColor: "#FF3B30" },
   recordingText: { color: "#FF3B30" },
-  recordingStatus: { marginTop: 8, textAlign: "center", color: "#666", fontSize: 14 },
-  mediaHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  disabledButton: { borderColor: "#C7C7CC", opacity: 0.6 },
+  statusContainer: { marginTop: 8 },
+  statusText: { fontSize: 14, color: "#6B7280" },
+  mediaButtonsContainer: { flexDirection: "row", marginTop: 8 },
+  mediaButton: { flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 8, borderWidth: 1, borderColor: "#007AFF" },
+  mediaButtonText: { marginLeft: 6, color: "#007AFF", fontWeight: "500" },
+  mediaHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   imagePreview: { width: "100%", height: 200, borderRadius: 8 },
-  videoPreview: { width: "100%", height: 200, borderRadius: 8 },
-  audioContainer: { flexDirection: "row", alignItems: "center", padding: 16, backgroundColor: "#F8F8F8", borderRadius: 8 },
-  playButton: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center", marginRight: 16 },
-  playingButton: { backgroundColor: "#FF9500" },
-  audioText: { color: "#666", flex: 1 },
-  uploadButton: { flexDirection: "row", backgroundColor: "#007AFF", padding: 16, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8, marginBottom: 30 },
+  videoPreview: { width: "100%", height: 200, borderRadius: 8, backgroundColor: "#000" },
+  uploadButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 8, backgroundColor: "#2563EB" },
+  uploadButtonText: { color: "#fff", fontWeight: "bold", marginLeft: 6 },
   uploadButtonDisabled: { backgroundColor: "#C7C7CC" },
-  uploadButtonText: { color: "white", fontWeight: "bold", fontSize: 18, marginLeft: 8 },
 });
+
+export default CreatePost;

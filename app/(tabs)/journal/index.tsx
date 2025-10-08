@@ -216,7 +216,7 @@ export default function JournalScreen() {
       {/* Calendar Button */}
       <TouchableOpacity
         style={[styles.newBtn, { backgroundColor: "#4a5568" }]}
-        onPress={() => router.push("/journal/Calendar")}
+        onPress={() => router.push("/journal/Calender")}
       >
         <Text style={styles.newBtnText}>📅 View Calendar</Text>
       </TouchableOpacity>

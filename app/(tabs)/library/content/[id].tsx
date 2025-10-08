@@ -26,6 +26,7 @@ import {
 import { LibraryContent, ContentRating } from '../../../../types/library';
 import { OfflineImage } from '../../../../components/OfflineImage';
 import { ContentVideoPlayer } from '../../../../components/ContentVideoPlayer';
+import { offlineCacheService } from '../../../../services/offlineCacheService';
 
 const { width } = Dimensions.get('window');
 
@@ -51,28 +52,69 @@ export default function ContentDetailScreen() {
   const loadContent = async () => {
     try {
       setLoading(true);
-      const contentData = await getContentById(id!);
       
-      if (!contentData) {
-        Alert.alert('Error', 'Content not found.');
-        router.back();
-        return;
-      }
+      // First, try to get content from cache for instant loading
+      const cachedContent = await offlineCacheService.getCachedContentById(id!);
+      
+      if (cachedContent) {
+        // Ensure dates are properly converted from cache
+        const contentWithDates = {
+          ...cachedContent,
+          createdAt: cachedContent.createdAt instanceof Date 
+            ? cachedContent.createdAt 
+            : new Date(cachedContent.createdAt),
+          updatedAt: cachedContent.updatedAt instanceof Date 
+            ? cachedContent.updatedAt 
+            : new Date(cachedContent.updatedAt)
+        };
+        
+        // Display cached content immediately
+        setContent(contentWithDates);
+        setLoading(false);
+        
+        console.log(`📱 Loaded content "${cachedContent.title}" from cache`);
+        
+        // Load user-specific data (bookmarks/ratings) in background
+        if (userProfile) {
+          loadUserSpecificData();
+        }
+        
+        // Optionally fetch fresh data in background to update cache
+        // This ensures content stays up-to-date
+        try {
+          const freshContentData = await getContentById(id!);
+          if (freshContentData) {
+            // Update cache with fresh data
+            await offlineCacheService.cacheContent([freshContentData], 'high');
+            
+            // Update displayed content if there are changes
+            if (JSON.stringify(cachedContent) !== JSON.stringify(freshContentData)) {
+              setContent(freshContentData);
+              console.log(`🔄 Updated content "${freshContentData.title}" with fresh data`);
+            }
+          }
+        } catch (backgroundError) {
+          console.log('Background refresh failed, using cached content');
+        }
+      } else {
+        // No cached content - fetch from API
+        const contentData = await getContentById(id!);
+        
+        if (!contentData) {
+          Alert.alert('Error', 'Content not found.');
+          router.back();
+          return;
+        }
 
-      setContent(contentData);
+        setContent(contentData);
+        
+        // Cache the content for future visits
+        await offlineCacheService.cacheContent([contentData], 'high');
+        console.log(`💾 Cached content "${contentData.title}" for offline access`);
 
-      // Load bookmark status and ratings for logged-in users
-      if (userProfile) {
-        const bookmarkStatus = await isContentBookmarked(userProfile.uid, id!);
-        setIsBookmarked(bookmarkStatus);
-
-        const contentRatings = await getContentRatings(id!);
-        setRatings(contentRatings);
-
-        // Find user's rating
-        const userRatingData = contentRatings.find(r => r.userId === userProfile.uid);
-        if (userRatingData) {
-          setUserRating(userRatingData.rating);
+        // Load user-specific data
+        if (userProfile) {
+          await loadUserSpecificData();
         }
       }
     } catch (error) {
@@ -80,6 +122,37 @@ export default function ContentDetailScreen() {
       Alert.alert('Error', 'Failed to load content. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserSpecificData = async () => {
+    if (!userProfile) return;
+    
+    try {
+      const [bookmarkStatus, contentRatings] = await Promise.all([
+        isContentBookmarked(userProfile.uid, id!),
+        getContentRatings(id!)
+      ]);
+      
+      setIsBookmarked(bookmarkStatus);
+      
+      // Ensure rating dates are properly converted
+      const ratingsWithDates = contentRatings.map(rating => ({
+        ...rating,
+        createdAt: rating.createdAt instanceof Date 
+          ? rating.createdAt 
+          : new Date(rating.createdAt)
+      }));
+      
+      setRatings(ratingsWithDates);
+
+      // Find user's rating
+      const userRatingData = ratingsWithDates.find(r => r.userId === userProfile.uid);
+      if (userRatingData) {
+        setUserRating(userRatingData.rating);
+      }
+    } catch (error) {
+      console.error('Error loading user-specific data:', error);
     }
   };
 
@@ -483,7 +556,7 @@ Shared from HerPower - Empowering Women Leaders
           )}
         </View>
       </ScrollView>
-      <View style={styles.bottomSpacer} />
+      {/* <View style={styles.bottomSpacer} /> */}
     </View>
   );
 }
@@ -811,7 +884,7 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 14,
   },
-  bottomSpacer: {
-    height: 100,
-  },
+  // bottomSpacer: {
+  //   height: 20,
+  // },
 });

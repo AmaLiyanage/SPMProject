@@ -3,8 +3,8 @@ import { useRouter } from 'expo-router';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { db } from '../../../config/firebase';
-import { useAuth } from '../../../contexts/AuthContext';
+import { db } from '../../config/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 
 type Task = {
   id: string;

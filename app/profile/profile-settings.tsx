@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, SafeAreaView, ScrollView, TextInput, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useProfilePicture } from '../../../hooks/useProfilePicture';
-import { clearAppData } from '../../../utils/appData';
+import { useAuth } from '../../contexts/AuthContext';
+import { useProfilePicture } from '../../hooks/useProfilePicture';
+import { clearAppData } from '../../utils/appData';
+import ProfilePicture from '../../components/ProfilePicture';
 
 export default function ProfileSettingsScreen() {
   const { userProfile, updateDisplayName } = useAuth();
-  const { handleEditProfilePicture, loading: profilePictureLoading } = useProfilePicture();
+  const { handleEditProfilePicture, loading: profilePictureLoading, uploadProgress } = useProfilePicture();
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(userProfile?.displayName || '');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -75,22 +76,30 @@ export default function ProfileSettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Edit Profile</Text>
           
-          <TouchableOpacity 
-            style={[styles.menuItem, profilePictureLoading && styles.menuItemDisabled]} 
-            onPress={handleEditProfilePicture}
-            disabled={profilePictureLoading}
-          >
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="image" size={24} color="#8B5CF6" />
-              <View>
-                <Text style={styles.menuItemTitle}>Profile Picture</Text>
-                <Text style={styles.menuItemSubtitle}>
-                  {profilePictureLoading ? 'Updating...' : 'Change or remove your photo'}
+          {/* Profile Picture Section with Visual Display */}
+          <View style={styles.profilePictureSection}>
+            <Text style={styles.profilePictureTitle}>Profile Picture</Text>
+            <View style={styles.profilePictureContainer}>
+              <ProfilePicture
+                imageUri={userProfile?.profilePicture}
+                userType={userProfile?.userType || 'user'}
+                size={80}
+                showEditButton={true}
+                onEdit={handleEditProfilePicture}
+                loading={profilePictureLoading}
+              />
+              <View style={styles.profilePictureInfo}>
+                <Text style={styles.profilePictureLabel}>
+                  {profilePictureLoading ? (uploadProgress || 'Updating...') : 'Tap to change or remove'}
                 </Text>
+                {userProfile?.profilePicture && (
+                  <Text style={styles.profilePictureHint}>
+                    Current photo is displayed
+                  </Text>
+                )}
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
+          </View>
 
           <View style={styles.menuItem}>
             <View style={styles.menuItemLeft}>
@@ -155,7 +164,7 @@ export default function ProfileSettingsScreen() {
           {userProfile?.userType === 'mentor' && (
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => router.push('/(tabs)/profile/edit-mentor-profile')}
+              onPress={() => router.push('/profile/edit-mentor-profile')}
             >
               <View style={styles.menuItemLeft}>
                 <Ionicons name="briefcase" size={24} color="#059669" />
@@ -260,6 +269,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 16,
+  },
+  profilePictureSection: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  profilePictureTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  profilePictureContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  profilePictureInfo: {
+    flex: 1,
+  },
+  profilePictureLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  profilePictureHint: {
+    fontSize: 12,
+    color: '#8B5CF6',
+    fontStyle: 'italic',
   },
   menuItem: {
     flexDirection: 'row',

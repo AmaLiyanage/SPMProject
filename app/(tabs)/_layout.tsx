@@ -65,12 +65,25 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="journal"
         options={{
-          title: 'Profile',
+          title: 'Journal',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? 'person' : 'person-outline'} 
+              name={focused ? 'create' : 'create-outline'} 
+              size={24} 
+              color={color} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="library"
+        options={{
+          title: 'Library',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? 'library' : 'library-outline'} 
               size={24} 
               color={color} 
             />

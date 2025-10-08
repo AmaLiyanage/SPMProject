@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,12 +13,13 @@ export default function WelcomeScreen() {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Logo/Icon Section */}
+          {/* Logo Section */}
           <View style={styles.logoSection}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="diamond" size={60} color="#fff" />
-            </View>
-            <Text style={styles.logoText}>HerPower</Text>
+            <Image 
+              source={require('../../assets/images/icon.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.tagline}>
               Amplifying women's leadership through storytelling and mentorship
             </Text>
@@ -95,24 +96,12 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 30,
   },
-  logoContainer: {
-    width: 120,
+  logo: {
+    width: 200,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 24,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  logoText: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 10,
   },
   tagline: {
     fontSize: 16,
@@ -125,7 +114,7 @@ const styles = StyleSheet.create({
   featuresSection: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 40,
+    marginVertical: 15,
   },
   feature: {
     alignItems: 'center',
@@ -147,7 +136,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   buttonSection: {
-    marginBottom: 50,
+    marginBottom: 30,
   },
   primaryButton: {
     backgroundColor: '#fff',

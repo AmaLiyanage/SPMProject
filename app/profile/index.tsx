@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, SafeAreaView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useProfilePicture } from '../../../hooks/useProfilePicture';
-import ProfilePicture from '../../../components/ProfilePicture';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext';
+import { useProfilePicture } from '../../hooks/useProfilePicture';
+import ProfilePicture from '../../components/ProfilePicture';
 
 export default function AccountScreen() {
   const { userProfile, logout, refreshProfile } = useAuth();
-  const { handleEditProfilePicture } = useProfilePicture();
+  const { handleEditProfilePicture, loading: profilePictureLoading } = useProfilePicture();
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
@@ -42,6 +43,12 @@ export default function AccountScreen() {
     );
   };
 
+  /** Navigate to the shared chat list */
+  const handleOpenChats = () => {
+    if (!userProfile) return;
+    router.push('/mentors/chat/ChatListScreen');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView 
@@ -51,7 +58,14 @@ export default function AccountScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Text style={styles.title}>Profile</Text>
+        
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#8B5CF6" />
+          </TouchableOpacity>
+          <Text style={styles.title}>My Profile</Text>
+          <View style={styles.headerSpacer} />
+        </View>
         
         {userProfile && (
           <View style={styles.profileSection}>
@@ -62,28 +76,47 @@ export default function AccountScreen() {
                 size={100}
                 showEditButton={true}
                 onEdit={handleEditProfilePicture}
+                loading={profilePictureLoading}
               />
               
-              <Text style={styles.name}>{userProfile.displayName}</Text>
+              <View style={styles.nameContainer}>
+                <Text style={styles.name}>{userProfile.displayName}</Text>
+                {userProfile.emailVerified && (
+                  <Ionicons 
+                    name="checkmark-circle" 
+                    size={18} 
+                    color="#10B981" 
+                    style={styles.verifiedIcon}
+                  />
+                )}
+              </View>
               <Text style={styles.email}>{userProfile.email}</Text>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
                   {userProfile.userType === 'mentor' ? 'Mentor' : 'User'}
                 </Text>
               </View>
-              {!userProfile.emailVerified && (
-                <View style={styles.warningBadge}>
-                  <Text style={styles.warningText}>Email Not Verified</Text>
-                </View>
-              )}
             </View>
           </View>
         )}
 
         <View style={styles.menuSection}>
+          {/* Chats menu item */}
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/profile/profile-settings')}
+            onPress={handleOpenChats}
+          >
+            <View style={styles.menuItemLeft}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#8B5CF6" style={{ marginRight: 12 }} />
+              <Text style={styles.menuText}>Chats</Text>
+            </View>
+            <Text style={styles.arrow}>›</Text>
+          </TouchableOpacity>
+
+          {/* Other menu items */}
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/profile/profile-settings')}
           >
             <Text style={styles.menuText}>Profile Settings</Text>
             <Text style={styles.arrow}>›</Text>
@@ -96,7 +129,7 @@ export default function AccountScreen() {
           
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/profile/privacy-security')}
+            onPress={() => router.push('/profile/privacy-security')}
           >
             <Text style={styles.menuText}>Privacy & Security</Text>
             <Text style={styles.arrow}>›</Text>
@@ -128,14 +161,39 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingTop: 20,
+    paddingTop: 0,
     paddingBottom: 40,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+  },
+  headerSpacer: {
+    width: 40, // Same width as back button to center the title
+  },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 30,
+    fontSize: 20,
+    fontWeight: '600',
     color: '#8B5CF6',
+    textAlign: 'center',
+    flex: 1,
   },
   profileSection: {
     backgroundColor: '#f8f9fa',
@@ -147,10 +205,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
+  },
+  verifiedIcon: {
+    marginLeft: 8,
   },
   email: {
     fontSize: 16,
@@ -169,17 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  warningBadge: {
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  warningText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   menuSection: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -193,6 +248,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  menuItemLeft: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
   },
   menuText: {
     fontSize: 16,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,9 +28,11 @@ export default function OnboardingScreen1() {
           </TouchableOpacity>
 
           <View style={styles.mainContent}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="diamond" size={80} color="#fff" />
-            </View>
+            <Image 
+              source={require('../../assets/images/icon.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.title}>Amplify Women's Leadership</Text>
             <Text style={styles.description}>
               HerPower connects ambitious women with experienced mentors and inspiring stories. Break barriers, overcome challenges, and accelerate your leadership journey through the power of community.
@@ -63,7 +65,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-    paddingTop: 60,
+    paddingTop: 30,
   },
   skipButton: {
     alignSelf: 'flex-end',
@@ -80,34 +82,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  iconContainer: {
-    width: 120,
+  logo: {
+    width: 250,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 40,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 10,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   description: {
     fontSize: 18,
     color: '#fff',
     textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 25,
     opacity: 0.9,
   },
   bottomSection: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   pagination: {
     flexDirection: 'row',

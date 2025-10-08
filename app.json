@@ -4,19 +4,30 @@
     "slug": "HerPower",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/herPowerLogo2.png",
     "scheme": "herpower",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to convert your voice to text.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record your voice."
+      },
       "supportsTablet": true
     },
     "android": {
+      "icon": "./assets/images/icon.png",
+      "roundIcon": "./assets/images/icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
+      ],
+      "edgeToEdgeEnabled": false,
+      "package": "com.anonymous.HerPower"
     },
     "web": {
       "bundler": "metro",
@@ -29,14 +40,23 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 250,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "hideAppNameInSplash": true
         }
-      ]
+      ],
+      "expo-video",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "75c98a5b-29e6-49d3-aa53-16941ae583e4"
+      }
     }
   }
 }

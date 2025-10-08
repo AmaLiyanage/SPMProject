@@ -6,6 +6,7 @@ import { pickImage } from '../utils/imageUtils';
 export const useProfilePicture = () => {
   const { userProfile, updateProfilePicture, deleteProfilePicture } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const handleEditProfilePicture = () => {
     const hasCustomPicture = userProfile?.profilePicture;
@@ -25,13 +26,26 @@ export const useProfilePicture = () => {
 
   const handleSelectFromLibrary = async () => {
     setLoading(true);
+    setUploadProgress('Selecting image...');
+    
     try {
       const imageUri = await pickImage();
       if (imageUri) {
+        setUploadProgress('Uploading to cloud...');
         await updateProfilePicture(imageUri);
-        Alert.alert('Success', 'Profile picture updated successfully!');
+        
+        setUploadProgress('Finalizing...');
+        
+        // Give image time to load before showing success message
+        setTimeout(() => {
+          Alert.alert('Success', 'Profile picture updated successfully!');
+          setUploadProgress(null);
+        }, 500);
+      } else {
+        setUploadProgress(null);
       }
     } catch (error: any) {
+      setUploadProgress(null);
       Alert.alert('Error', error.message || 'Failed to update profile picture');
     } finally {
       setLoading(false);
@@ -55,6 +69,8 @@ export const useProfilePicture = () => {
 
   const executeDeleteProfilePicture = async () => {
     setLoading(true);
+    setUploadProgress('Removing picture...');
+    
     try {
       await deleteProfilePicture();
       Alert.alert('Success', 'Profile picture removed successfully!');
@@ -62,11 +78,13 @@ export const useProfilePicture = () => {
       Alert.alert('Error', error.message || 'Failed to remove profile picture');
     } finally {
       setLoading(false);
+      setUploadProgress(null);
     }
   };
 
   return {
     loading,
+    uploadProgress,
     userProfile,
     handleEditProfilePicture,
     handleSelectFromLibrary,

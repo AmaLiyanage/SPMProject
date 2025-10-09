@@ -1,5 +1,5 @@
-import { Feather, FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { Audio, ResizeMode, Video } from "expo-av";
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { ResizeMode, Video } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getAuth } from "firebase/auth";
@@ -18,13 +18,8 @@ const UpdatePost = () => {
   const [title, setTitle] = useState("");
   const [textContent, setTextContent] = useState("");
   const [mediaUri, setMediaUri] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<"image" | "video" | "audio" | null>(null);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [mediaType, setMediaType] = useState<"image" | "video" | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingStatus, setRecordingStatus] = useState<string>("");
 
   const videoRef = useRef<Video>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -32,11 +27,6 @@ const UpdatePost = () => {
   useEffect(() => {
     if (!storyId) return Alert.alert("Error", "No story selected");
     fetchStory();
-
-    return () => {
-      if (sound) sound.unloadAsync();
-      if (recording) recording.stopAndUnloadAsync();
-    };
   }, [storyId]);
 
   // ---------- FETCH EXISTING STORY ----------
@@ -49,7 +39,7 @@ const UpdatePost = () => {
       setTitle(data?.title || "");
       setTextContent(data?.text || "");
       if (data?.type && data?.content) {
-        setMediaType(data.type);
+        setMediaType(data.type as "image" | "video");
         setMediaUri(data.content);
       }
     } catch (error: any) {
@@ -77,87 +67,9 @@ const UpdatePost = () => {
     }
   };
 
-  // ---------- START / STOP RECORDING ----------
-  const startRecording = async () => {
-    try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") return Alert.alert("Permission required");
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-      });
-
-      const newRecording = new Audio.Recording();
-      await newRecording.prepareToRecordAsync({
-        android: { extension: '.m4a', outputFormat: Audio.AndroidOutputFormat.MPEG_4, audioEncoder: Audio.AndroidAudioEncoder.AAC, sampleRate: 44100, numberOfChannels: 2, bitRate: 128000 },
-        ios: { extension: '.m4a', outputFormat: Audio.IOSOutputFormat.MPEG4AAC, audioQuality: Audio.IOSAudioQuality.HIGH, sampleRate: 44100, numberOfChannels: 2, bitRate: 128000 },
-        web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
-      });
-
-      setRecording(newRecording);
-      setIsRecording(true);
-      setRecordingStatus("Recording...");
-      await newRecording.startAsync();
-    } catch (error: any) {
-      console.log("Recording failed:", error);
-      Alert.alert("Recording failed", error.message);
-      setIsRecording(false);
-      setRecordingStatus("");
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!recording) return;
-    try {
-      setRecordingStatus("Processing...");
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      if (uri) {
-        setMediaUri(uri);
-        setMediaType("audio");
-        setRecordingStatus("Recording saved");
-      }
-      setRecording(null);
-      setIsRecording(false);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-    } catch (error: any) {
-      console.log("Stop recording error:", error);
-      Alert.alert("Stop failed", error.message);
-      setRecording(null);
-      setIsRecording(false);
-      setRecordingStatus("");
-    }
-  };
-
-  // ---------- PLAY AUDIO ----------
-  const playAudio = async () => {
-    if (!mediaUri) return;
-    try {
-      if (sound) { await sound.stopAsync(); await sound.unloadAsync(); setSound(null); setIsPlaying(false); return; }
-
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri: mediaUri });
-      setSound(newSound);
-      setIsPlaying(true);
-      await newSound.playAsync();
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          setIsPlaying(false);
-          setSound(null);
-        }
-      });
-    } catch (error: any) {
-      console.log("Playback error:", error);
-      Alert.alert("Playback failed", error.message);
-    }
-  };
-
   const removeMedia = () => {
     setMediaUri(null);
     setMediaType(null);
-    if (sound) { sound.unloadAsync(); setSound(null); setIsPlaying(false); }
-    setRecordingStatus("");
   };
 
   const cancelUpdate = () => {
@@ -237,31 +149,18 @@ const UpdatePost = () => {
               <Ionicons name="image-outline" size={24} color="#007AFF" />
               <Text style={styles.mediaButtonText}>Photo/Video</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.mediaButton, isRecording && styles.recordingButton]} onPress={isRecording ? stopRecording : startRecording} disabled={isUploading}>
-              <FontAwesome name={isRecording ? "stop-circle" : "microphone"} size={24} color={isRecording ? "#FF3B30" : "#007AFF"} />
-              <Text style={[styles.mediaButtonText, isRecording && styles.recordingText]}>{isRecording ? "Stop Recording" : "Record Audio"}</Text>
-            </TouchableOpacity>
           </View>
-          {recordingStatus ? <Text style={styles.recordingStatus}>{recordingStatus}</Text> : null}
         </View>
 
         {/* Media Preview */}
         {mediaUri && (
           <View style={styles.card}>
             <View style={styles.mediaHeader}>
-              <Text style={styles.label}>{mediaType === "image" ? "Image Preview" : mediaType === "video" ? "Video Preview" : "Audio Recording"}</Text>
+              <Text style={styles.label}>{mediaType === "image" ? "Image Preview" : "Video Preview"}</Text>
               <TouchableOpacity onPress={removeMedia}><Feather name="x-circle" size={24} color="#8E8E93" /></TouchableOpacity>
             </View>
             {mediaType === "image" && <Image source={{ uri: mediaUri }} style={styles.imagePreview} />}
             {mediaType === "video" && <Video ref={videoRef} source={{ uri: mediaUri }} style={styles.videoPreview} useNativeControls resizeMode={ResizeMode.CONTAIN} />}
-            {mediaType === "audio" && (
-              <View style={styles.audioContainer}>
-                <TouchableOpacity style={[styles.playButton, isPlaying && styles.playingButton]} onPress={playAudio}>
-                  <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={28} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.audioText}>{isPlaying ? "Playing..." : "Tap to play your recording"}</Text>
-              </View>
-            )}
           </View>
         )}
 
@@ -284,7 +183,6 @@ const UpdatePost = () => {
 
 export default UpdatePost;
 
-// ---------- STYLES ----------
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F5F5", padding: 16 , marginTop: 30 },
   headerContainer: { flexDirection: "row", alignItems: "center", marginBottom: 20 , marginTop: 20 },
@@ -296,16 +194,9 @@ const styles = StyleSheet.create({
   mediaButtonsContainer: { flexDirection: "row", justifyContent: "space-between" },
   mediaButton: { flexDirection: "row", alignItems: "center", padding: 12, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 8, backgroundColor: "#FAFAFA", flex: 1, marginHorizontal: 4, justifyContent: "center" },
   mediaButtonText: { marginLeft: 8, color: "#007AFF", fontWeight: "500" },
-  recordingButton: { borderColor: "#FF3B30", backgroundColor: "#FFEEED" },
-  recordingText: { color: "#FF3B30" },
-  recordingStatus: { marginTop: 8, textAlign: "center", color: "#666", fontSize: 14 },
   mediaHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   imagePreview: { width: "100%", height: 200, borderRadius: 8 },
   videoPreview: { width: "100%", height: 200, borderRadius: 8 },
-  audioContainer: { flexDirection: "row", alignItems: "center", padding: 16, backgroundColor: "#F8F8F8", borderRadius: 8 },
-  playButton: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center", marginRight: 16 },
-  playingButton: { backgroundColor: "#FF9500" },
-  audioText: { color: "#666", flex: 1 },
   uploadButton: { flexDirection: "row", backgroundColor: "#007AFF", padding: 16, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8, marginBottom: 30 },
   uploadButtonDisabled: { backgroundColor: "#C7C7CC" },
   uploadButtonText: { color: "white", fontWeight: "bold", fontSize: 18, marginLeft: 8 },

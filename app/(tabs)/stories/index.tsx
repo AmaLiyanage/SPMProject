@@ -1,11 +1,10 @@
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Audio, ResizeMode, Video } from "expo-av";
+import { Ionicons } from "@expo/vector-icons";
+import { ResizeMode, Video } from "expo-av"; // 🔹 Removed Audio import
 import { useRouter } from "expo-router";
 import { getAuth } from "firebase/auth";
 import { collection, doc, getDoc, onSnapshot, orderBy, query } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   FlatList,
   Image,
   Modal,
@@ -14,12 +13,11 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from "react-native";
 import { db } from "../../../config/firebase";
 import { setStories, Story } from "./storiesStore";
 
-// Cache to prevent multiple userDoc reads
 const userCache = new Map<string, { displayName: string; profilePicture: string }>();
 
 export default function StoriesScreen() {
@@ -27,22 +25,16 @@ export default function StoriesScreen() {
   const auth = getAuth();
 
   const [stories, setLocalStories] = useState<Story[]>([]);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-
   const [modalVisible, setModalVisible] = useState(false);
   const [modalUri, setModalUri] = useState<string>("");
-
   const [profileImage, setProfileImage] = useState<string>("");
   const [cachedStories, setCachedStories] = useState<Story[]>([]);
-
-  // Search states
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Story[] | null>(null);
 
   // ---------- HASHTAG PARSER ----------
   const renderTextWithHashtags = (text: string) => {
-    const words = text.split(/(\s+)/); // keep spaces
+    const words = text.split(/(\s+)/);
     return words.map((word, index) => {
       if (!word) return <Text key={index} />;
 
@@ -54,9 +46,7 @@ export default function StoriesScreen() {
             onPress={() =>
               router.push({
                 pathname: "/stories/HashtagScreen",
-                params: {
-                  tag: word.replace("#", ""),
-                },
+                params: { tag: word.replace("#", "") },
               })
             }
           >
@@ -69,7 +59,7 @@ export default function StoriesScreen() {
     });
   };
 
-  // Update search results when query changes
+  // 🔍 Search
   useEffect(() => {
     const q = searchQuery.trim();
     if (q.length === 0) {
@@ -77,7 +67,6 @@ export default function StoriesScreen() {
       return;
     }
 
-    // Hashtag search (starts with #)
     if (q.startsWith("#")) {
       const tag = q.replace(/^#/, "").toLowerCase();
       const filtered = stories.filter((story) => {
@@ -88,32 +77,27 @@ export default function StoriesScreen() {
       return;
     }
 
-    // Username search
     const lower = q.toLowerCase();
-    // find users whose displayName match
     const matchingUserIds = new Set(
       stories
         .filter((s) => (s.displayName || "").toLowerCase().includes(lower))
         .map((s) => s.userId)
     );
-
-    // filter posts by those users
     const filteredByUser = stories.filter((s) => matchingUserIds.has(s.userId));
     setSearchResults(filteredByUser);
   }, [searchQuery, stories]);
 
+  // 🔹 Fetch stories
   useEffect(() => {
     fetchUserProfile();
 
     const q = query(collection(db, "stories"), orderBy("createdAt", "desc"));
-
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
         const storiesList: Story[] = await Promise.all(
           snapshot.docs.map(async (docSnap) => {
             const storyData = docSnap.data() as Story;
-
             let userData = userCache.get(storyData.userId);
             if (!userData) {
               try {
@@ -121,12 +105,11 @@ export default function StoriesScreen() {
                 userData = userDoc.exists()
                   ? (userDoc.data() as { displayName: string; profilePicture: string })
                   : { displayName: "Anonymous", profilePicture: "" };
-              } catch (e) {
+              } catch {
                 userData = { displayName: "Anonymous", profilePicture: "" };
               }
               userCache.set(storyData.userId, userData);
             }
-
             return {
               ...storyData,
               id: docSnap.id,
@@ -135,10 +118,8 @@ export default function StoriesScreen() {
             };
           })
         );
-
         setLocalStories(storiesList);
         setCachedStories(storiesList);
-        // store into in-memory store so other screens can read it
         setStories(storiesList);
       },
       (error) => {
@@ -147,13 +128,7 @@ export default function StoriesScreen() {
       }
     );
 
-    return () => {
-      unsubscribe();
-      if (sound) {
-        sound.unloadAsync().catch(() => {});
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => unsubscribe();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -170,38 +145,13 @@ export default function StoriesScreen() {
     }
   };
 
-  const playAudio = async (uri: string, id: string) => {
-    try {
-      if (sound) {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-        setSound(null);
-        setPlayingId(null);
-        if (playingId === id) return;
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri });
-      setSound(newSound);
-      setPlayingId(id);
-      await newSound.playAsync();
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        // @ts-ignore
-        if (status.isLoaded && "didJustFinish" in status && status.didJustFinish) {
-          setPlayingId(null);
-          setSound(null);
-        }
-      });
-    } catch (error: any) {
-      console.log(error);
-      Alert.alert("Playback failed", error?.message || "Unknown error");
-    }
-  };
-
+  // 🔹 Render each story card
   const renderItem = ({ item }: { item: Story }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <TouchableOpacity onPress={() => router.push(`/stories/UserStoriesScreen?userId=${item.userId}`)}>
+        <TouchableOpacity
+          onPress={() => router.push(`/stories/UserStoriesScreen?userId=${item.userId}`)}
+        >
           {item.profilePicture ? (
             <Image source={{ uri: item.profilePicture }} style={styles.avatarImage} />
           ) : (
@@ -216,9 +166,7 @@ export default function StoriesScreen() {
       {item.title && <Text style={styles.title}>{item.title}</Text>}
 
       {(item.text || (item.type === "text" && item.content)) && (
-        <Text style={styles.text}>
-          {renderTextWithHashtags(item.text || item.content)}
-        </Text>
+        <Text style={styles.text}>{renderTextWithHashtags(item.text || item.content)}</Text>
       )}
 
       {item.type === "image" && (
@@ -235,22 +183,9 @@ export default function StoriesScreen() {
           resizeMode={ResizeMode.COVER}
         />
       )}
-
-      {item.type === "audio" && (
-        <TouchableOpacity
-          style={[styles.playButton, playingId === item.id && styles.playingButton]}
-          onPress={() => playAudio(item.content, item.id)}
-        >
-          <MaterialIcons name={playingId === item.id ? "pause" : "play-arrow"} size={28} color="white" />
-          <Text style={styles.audioText}>
-            {playingId === item.id ? "Playing..." : "Play Audio"}
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 
-  // Determine list to render: if searching show searchResults (even empty array), else show full feed
   const listToShow = searchResults !== null ? searchResults : stories;
 
   return (
@@ -267,7 +202,6 @@ export default function StoriesScreen() {
               style={styles.topAvatar}
             />
           </TouchableOpacity>
-
           <TouchableOpacity onPress={() => router.push("/stories/CreatePost")} style={styles.createButton}>
             <Ionicons name="add-circle" size={32} color="#8B5CF6" />
           </TouchableOpacity>
@@ -318,13 +252,20 @@ export default function StoriesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F5F5" },
-  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, paddingTop: 60, backgroundColor: "white", borderBottomWidth: 1, borderBottomColor: "#EEE" },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    paddingTop: 60,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEE",
+  },
   screenTitle: { fontSize: 22, fontWeight: "bold", color: "#8B5CF6" },
   profileButton: { padding: 4, borderRadius: 20, backgroundColor: "#F0F0F0" },
   topAvatar: { width: 40, height: 40, borderRadius: 20 },
   createButton: { marginLeft: 12, padding: 4 },
-
-  // search bar
   searchBarContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -337,19 +278,44 @@ const styles = StyleSheet.create({
     height: 44,
   },
   searchInput: { flex: 1, fontSize: 16, height: "100%" },
-
-  card: { backgroundColor: "white", borderRadius: 12, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 3, overflow: "hidden" },
-  cardHeader: { flexDirection: "row", alignItems: "center", padding: 12, borderBottomWidth: 1, borderBottomColor: "#EEE" },
-  avatarCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#8B5CF6", justifyContent: "center", alignItems: "center", marginRight: 10 },
+  card: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+    overflow: "hidden",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEE",
+  },
+  avatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#8B5CF6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
   avatarImage: { width: 34, height: 34, borderRadius: 17, marginRight: 10 },
   username: { fontWeight: "600", fontSize: 15, color: "#333" },
   title: { fontWeight: "bold", fontSize: 18, margin: 12, color: "#222" },
   text: { fontSize: 16, marginHorizontal: 12, marginBottom: 12, color: "#444" },
   image: { width: "100%", height: 300 },
   inlineVideo: { width: "100%", height: 300, backgroundColor: "#000" },
-  playButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#007AFF", padding: 14, borderRadius: 12, margin: 12, justifyContent: "center" },
-  playingButton: { backgroundColor: "#FF9500" },
-  audioText: { color: "white", fontWeight: "600", marginLeft: 12 },
-  modalContainer: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   modalImage: { width: "90%", height: "80%", borderRadius: 12 },
 });

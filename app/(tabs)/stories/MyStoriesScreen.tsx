@@ -1,5 +1,5 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Audio, ResizeMode, Video } from "expo-av";
+import { ResizeMode, Video } from "expo-av";
 import { useRouter } from "expo-router";
 import { getAuth } from "firebase/auth";
 import {
@@ -30,8 +30,8 @@ interface Story {
   title: React.JSX.Element;
   id: string;
   userId: string;
-  type: "text" | "image" | "video" | "audio";
-  content: string; // for text content or media URL
+  type: "text" | "image" | "video";
+  content: string;
   createdAt?: any;
   displayName?: string;
   profilePicture?: string;
@@ -39,7 +39,7 @@ interface Story {
 
 // 🔹 Helper function to render hashtags & mentions
 const renderTextWithHashtags = (text: string) => {
-  const parts = text.split(/(\s+)/); // split by spaces
+  const parts = text.split(/(\s+)/);
   return (
     <Text style={styles.text}>
       {parts.map((part, idx) => {
@@ -68,8 +68,6 @@ export default function MyStoriesScreen() {
   const router = useRouter();
 
   const [stories, setStories] = useState<Story[]>([]);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalUri, setModalUri] = useState<string>("");
@@ -77,10 +75,6 @@ export default function MyStoriesScreen() {
   useEffect(() => {
     if (!userId) return Alert.alert("Error", "User not logged in");
     fetchMyStories();
-
-    return () => {
-      if (sound) sound.unloadAsync();
-    };
   }, [userId]);
 
   // 🔹 Fetch user's stories
@@ -140,38 +134,6 @@ export default function MyStoriesScreen() {
     ]);
   };
 
-  // 🔹 Play audio
-  const playAudio = async (uri: string, id: string) => {
-    try {
-      if (sound) {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-        setSound(null);
-        setPlayingId(null);
-        if (playingId === id) return;
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync({ uri });
-      setSound(newSound);
-      setPlayingId(id);
-      await newSound.playAsync();
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (
-          status.isLoaded &&
-          "didJustFinish" in status &&
-          status.didJustFinish
-        ) {
-          setPlayingId(null);
-          setSound(null);
-        }
-      });
-    } catch (error: any) {
-      console.log(error);
-      Alert.alert("Playback failed", error.message);
-    }
-  };
-
   // 🔹 Render story card
   const renderItem = ({ item }: { item: Story }) => (
     <View style={styles.card}>
@@ -217,25 +179,6 @@ export default function MyStoriesScreen() {
           useNativeControls
           resizeMode={ResizeMode.COVER}
         />
-      )}
-
-      {item.type === "audio" && (
-        <TouchableOpacity
-          style={[
-            styles.playButton,
-            playingId === item.id && styles.playingButton,
-          ]}
-          onPress={() => playAudio(item.content, item.id)}
-        >
-          <MaterialIcons
-            name={playingId === item.id ? "pause" : "play-arrow"}
-            size={28}
-            color="white"
-          />
-          <Text style={styles.audioText}>
-            {playingId === item.id ? "Playing..." : "Play Audio"}
-          </Text>
-        </TouchableOpacity>
       )}
 
       {/* Menu Modal */}
@@ -344,7 +287,7 @@ const styles = StyleSheet.create({
   createButton: { padding: 4 },
 
   card: {
-    backgroundColor: "#ffffffff",
+    backgroundColor: "#fff",
     borderRadius: 12,
     marginBottom: 20,
     shadowColor: "#000",
@@ -386,18 +329,6 @@ const styles = StyleSheet.create({
 
   image: { width: "100%", height: 300 },
   inlineVideo: { width: "100%", height: 300, backgroundColor: "#000" },
-
-  playButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#007AFF",
-    padding: 14,
-    borderRadius: 12,
-    margin: 12,
-    justifyContent: "center",
-  },
-  playingButton: { backgroundColor: "#FF9500" },
-  audioText: { color: "white", fontWeight: "600", marginLeft: 12 },
 
   modalOverlay: {
     flex: 1,

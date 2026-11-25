@@ -40,5 +40,4 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-app-example
-config.bat
+
